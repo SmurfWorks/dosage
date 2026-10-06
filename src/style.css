@@ -675,8 +675,10 @@ textarea {
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+  width: min(100%, 40rem);
   height: 100%;
   max-height: none;
+  margin-inline: auto;
   overflow: hidden;
   padding:
     max(18px, env(safe-area-inset-top))

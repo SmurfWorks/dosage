@@ -13,8 +13,8 @@
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
     <title>Insulin calculator</title>
-    <script type="module" crossorigin src="./assets/index-2G_Mh217.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-94qQUxEQ.css">
+    <script type="module" crossorigin src="./assets/index-BcWZH85O.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-C7O0SG2U.css">
   <link rel="manifest" href="./manifest.webmanifest"></head>
   <body>
     <div class="app">
@@ -316,6 +316,17 @@
           <button id="log-add-button" type="submit">Save for</button>
         </form>
         <div id="log-list"></div>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog id="delete-confirm" aria-labelledby="delete-confirm-title">
+      <div class="about-panel">
+        <h2 id="delete-confirm-title">Delete all data?</h2>
+        <p>This removes saved ratios and every log entry. It cannot be undone.</p>
+        <div class="confirm-actions">
+          <button id="delete-cancel" class="secondary" type="button">Cancel</button>
+          <button id="delete-confirm-button" class="danger" type="button">Delete all data</button>
         </div>
       </div>
     </dialog>
