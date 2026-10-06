@@ -73,9 +73,14 @@ export function saveLog(entries: LogEntry[]) {
   localStorage.setItem(LOG_KEY, JSON.stringify(entries))
 }
 
+export function hasTarget(entry: LogEntry): boolean {
+  return entry.insulinUnits > 0 || (entry.carbsGrams ?? 0) > 0
+}
+
 export function latestTargetMmol(entries: LogEntry[]): number | null {
   let latest: LogEntry | null = null
   for (const entry of entries) {
+    if (!hasTarget(entry)) continue
     if (!latest || Date.parse(entry.at) > Date.parse(latest.at)) latest = entry
   }
   return latest ? latest.targetMmol : null
@@ -178,13 +183,27 @@ export function formatLogDate(at: string, timeZone: string): string {
 }
 
 export function formatLogTime(at: string, timeZone: string): string {
-  return zonedFormat(at, timeZone, { hour: 'numeric', minute: '2-digit' })
+  return zonedFormat(at, timeZone, { hour: 'numeric', minute: '2-digit', hour12: true })
 }
 
 export function formatInsulin(units: number, step: number): string {
   const decimals = step >= 1 ? 0 : Math.min(4, Math.ceil(-Math.log10(step)))
   const figure = units.toFixed(decimals)
   return `${figure} ${units === 1 ? 'unit' : 'units'}`
+}
+
+export function formatBolusUnits(units: number, step: number): string {
+  const decimals = step >= 1 ? 0 : Math.min(4, Math.ceil(-Math.log10(step)))
+  return `${units.toFixed(decimals)} bolus ${units === 1 ? 'unit' : 'units'}`
+}
+
+export function formatCarbohydrates(grams: number): string {
+  return `${Number(grams.toFixed(2)).toString()}g of carbohydrates`
+}
+
+export function formatBasalUnits(units: number): string {
+  const figure = Number(units.toFixed(2)).toString()
+  return `${figure} basal ${units === 1 ? 'unit' : 'units'}`
 }
 
 export function formatCarbs(grams: number): string {

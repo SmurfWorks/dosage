@@ -20,11 +20,14 @@ import {
   browserTimeZone,
   createLogEntry,
   dateInTimeZone,
-  formatCarbs,
+  formatBasalUnits,
+  formatBolusUnits,
+  formatCarbohydrates,
   formatDateKey,
   formatLocalDateKey,
   formatInsulin,
   formatLogTime,
+  hasTarget,
   insulinStepFor,
   latestTargetMmol,
   loadLog,
@@ -46,7 +49,6 @@ const TARGET_MMOL_MAX = 30
 const EFFECT_MMOL_MAX = 30
 
 let glucoseUnit: GlucoseUnit = 'mmol'
-let doseReady = false
 let glucoseFromLog = false
 let showFibre = true
 
@@ -61,17 +63,19 @@ const decimalUp = document.querySelector<HTMLButtonElement>('#decimal-up')!
 const carbsInput = document.querySelector<HTMLInputElement>('#carbs')!
 const fibreWrap = document.querySelector<HTMLElement>('#fibre-wrap')!
 const fibreInput = document.querySelector<HTMLInputElement>('#fibre')!
+const netCarbsEl = document.querySelector<HTMLElement>('#net-carbs')!
 const showFibreInput = document.querySelector<HTMLInputElement>('#show-fibre')!
 const glucoseSource = document.querySelector<HTMLElement>('#glucose-source')!
-const saveAnywayButton = document.querySelector<HTMLButtonElement>('#save-log-anyway')!
 const resultEl = document.querySelector<HTMLElement>('#result')!
+const targetCard = document.querySelector<HTMLElement>('#target-card')!
+const targetDetail = document.querySelector<HTMLElement>('#target-detail')!
 const saveLogButton = document.querySelector<HTMLButtonElement>('#save-log')!
-const logActions = document.querySelector<HTMLElement>('.log-actions')!
 const withBasalWrap = document.querySelector<HTMLLabelElement>('#with-basal-wrap')!
 const withBasalInput = document.querySelector<HTMLInputElement>('#with-basal')!
 const withBasalLabel = document.querySelector<HTMLElement>('#with-basal-label')!
 const basalList = document.querySelector<HTMLElement>('#basal-list')!
 const saveNote = document.querySelector<HTMLElement>('#save-note')!
+const toast = document.querySelector<HTMLElement>('#toast')!
 const entryNote = document.querySelector<HTMLTextAreaElement>('#entry-note')!
 const entryNoteDetails = document.querySelector<HTMLDetailsElement>('#entry-note-details')!
 const logDialog = document.querySelector<HTMLDialogElement>('#log')!
@@ -85,13 +89,27 @@ const logCalendar = document.querySelector<HTMLButtonElement>('#log-calendar')!
 const logList = document.querySelector<HTMLElement>('#log-list')!
 const logAddOpen = document.querySelector<HTMLButtonElement>('#log-add-open')!
 const logAddClose = document.querySelector<HTMLButtonElement>('#log-add-close')!
+const logAddDialog = document.querySelector<HTMLDialogElement>('#log-add-dialog')!
 const logAddForm = document.querySelector<HTMLFormElement>('#log-add')!
 const logAddButton = document.querySelector<HTMLButtonElement>('#log-add-button')!
+const logAddDate = document.querySelector<HTMLElement>('#log-add-date')!
 const addTime = document.querySelector<HTMLInputElement>('#add-time')!
+const addHour = document.querySelector<HTMLInputElement>('#add-hour')!
+const addMinute = document.querySelector<HTMLInputElement>('#add-minute')!
+const meridiemButtons = [...document.querySelectorAll<HTMLButtonElement>('[data-meridiem]')]
 const addGlucose = document.querySelector<HTMLInputElement>('#add-glucose')!
+const addGlucoseUnit = document.querySelector<HTMLElement>('#add-glucose-unit')!
 const addCarbs = document.querySelector<HTMLInputElement>('#add-carbs')!
+const addFibreWrap = document.querySelector<HTMLElement>('#add-fibre-wrap')!
+const addFibre = document.querySelector<HTMLInputElement>('#add-fibre')!
+const addNetCarbs = document.querySelector<HTMLElement>('#add-net-carbs')!
 const addInsulin = document.querySelector<HTMLInputElement>('#add-insulin')!
+const addInsulinUnit = document.querySelector<HTMLElement>('#add-insulin-unit')!
+const addTarget = document.querySelector<HTMLInputElement>('#add-target')!
+const addTargetUnit = document.querySelector<HTMLElement>('#add-target-unit')!
+const addTargetHelp = document.querySelector<HTMLElement>('#add-target-help')!
 const addNote = document.querySelector<HTMLTextAreaElement>('#add-note')!
+const addNoteDetails = document.querySelector<HTMLDetailsElement>('#add-note-details')!
 const addWithBasalWrap = document.querySelector<HTMLLabelElement>('#add-with-basal-wrap')!
 const addWithBasal = document.querySelector<HTMLInputElement>('#add-with-basal')!
 const addWithBasalLabel = document.querySelector<HTMLElement>('#add-with-basal-label')!
@@ -190,12 +208,14 @@ function writeTarget(whole: number, decimal: number) {
   const ceiling = targetCeiling()
   targetWholeInput.value = String(whole)
   targetDecimalInput.value = String(decimal)
+  sizeStepInput(targetWholeInput)
+  sizeStepInput(targetDecimalInput)
   const atFloor = whole === 0 && decimal === 0
   const atCeiling = whole >= ceiling
   targetWholeDown.disabled = atFloor
-  targetDecimalDown.disabled = atFloor || glucoseUnit === 'mgdl'
+  targetDecimalDown.disabled = atFloor
   targetWholeUp.disabled = atCeiling
-  targetDecimalUp.disabled = atCeiling || glucoseUnit === 'mgdl'
+  targetDecimalUp.disabled = atCeiling
 }
 
 function readTargetMmol(): number {
@@ -280,8 +300,16 @@ function applySettings(settings: Settings) {
 
 function paintUnits() {
   const mgdl = glucoseUnit === 'mgdl'
-  for (const part of document.querySelectorAll<HTMLElement>('.split .tenth, .split .point')) {
+  for (const part of document.querySelectorAll<HTMLElement>('.split input.tenth, .split .point')) {
     part.hidden = mgdl
+  }
+  for (const button of document.querySelectorAll<HTMLButtonElement>(
+    '.split button[id$="whole-up"], .split button[id$="whole-down"], .split button.tenth',
+  )) {
+    button.dataset.mmolLabel ??= button.getAttribute('aria-label') ?? ''
+    const raise = button.id.endsWith('-up')
+    const amount = button.classList.contains('tenth') ? 1 : 10
+    button.setAttribute('aria-label', mgdl ? `${raise ? 'Raise' : 'Lower'} by ${amount} mg/dL` : button.dataset.mmolLabel)
   }
   wholeInput.setAttribute('aria-label', mgdl ? 'Glucose' : 'Whole number')
   targetWholeInput.setAttribute('aria-label', mgdl ? 'Target' : 'Target whole number')
@@ -290,13 +318,26 @@ function paintUnits() {
   carbEffect.whole.setAttribute('aria-label', mgdl ? 'Carbohydrate effect' : 'Carbohydrate effect whole number')
   insulinEffect.whole.setAttribute('aria-label', mgdl ? 'Insulin effect' : 'Insulin effect whole number')
   addGlucose.setAttribute('aria-label', `Glucose, ${glucoseUnitLabel(glucoseUnit)}`)
+  addTarget.setAttribute('aria-label', `Target, ${glucoseUnitLabel(glucoseUnit)}`)
   glucoseUnitLabelEl.textContent = glucoseUnitLabel(glucoseUnit)
+  addGlucoseUnit.textContent = glucoseUnitLabel(glucoseUnit)
+  addTargetUnit.textContent = glucoseUnitLabel(glucoseUnit)
+  addGlucose.placeholder = addTarget.placeholder = glucoseUnit === 'mgdl' ? '0' : '0.0'
+  sizeStepInputs()
   for (const input of unitInputs) input.checked = input.value === glucoseUnit
 }
 
 function paintFibre() {
   showFibreInput.checked = showFibre
   fibreWrap.hidden = !showFibre
+  addFibreWrap.hidden = !showFibre
+  paintNetCarbs(netCarbsEl, readCarbs(), readFibre())
+  paintNetCarbs(addNetCarbs, readOptionalAmount(addCarbs, 500) ?? 0, showFibre ? readOptionalAmount(addFibre, 500) ?? 0 : 0)
+}
+
+function paintNetCarbs(el: HTMLElement, carbs: number, fibre: number) {
+  el.hidden = !(showFibre && fibre > 0)
+  el.firstElementChild!.textContent = `Calculated carbs: ${Number(Math.max(0, carbs - fibre).toFixed(2))} g`
 }
 
 function settingsAreValid(settings: Settings): boolean {
@@ -356,11 +397,11 @@ function readBasalRows(): Basal[] {
 }
 
 function basalChoiceLabel(dateKey: string | null, minutes: number | null): string {
-  if (dateKey === null || minutes === null) return 'With basal'
+  if (dateKey === null || minutes === null) return 'With Basal'
   const basal = basalForDateTime(readBasalRows(), dateKey, minutes)
-  if (!basal) return 'With basal'
+  if (!basal) return 'With Basal'
   const amount = formatInsulin(basal.units, insulinStepFor(basal.units))
-  return `With basal, ${amount}, ${periodLabel(basal.period)}`
+  return `With ${periodLabel(basal.period)} Basal Dosage (${amount})`
 }
 
 function checkedBasal(input: HTMLInputElement, dateKey: string, minutes: number): BasalDose | null {
@@ -380,16 +421,12 @@ function paintAddBasal(configured = readBasalRows()) {
 
 function paintBasalChoice() {
   const configured = readBasalRows()
-  const saveVisible = !saveLogButton.hidden
-  const anywayVisible = !glucoseSource.hidden
-  const show = configured.length > 0 && (saveVisible || anywayVisible)
+  const show = configured.length > 0
   withBasalWrap.hidden = !show
   if (!show) withBasalInput.checked = false
-  if (saveVisible) logActions.insertBefore(withBasalWrap, saveLogButton)
-  else glucoseSource.insertBefore(withBasalWrap, saveAnywayButton)
   const now = new Date()
   const minutes = logMinutesOfDay(now.toISOString(), browserTimeZone())
-  withBasalLabel.textContent = show ? basalChoiceLabel(todayDateKey(browserTimeZone(), now), minutes) : 'With basal'
+  withBasalLabel.textContent = show ? basalChoiceLabel(todayDateKey(browserTimeZone(), now), minutes) : 'With Basal'
   paintAddBasal(configured)
 }
 
@@ -434,7 +471,7 @@ function addBasalRow(period: BasalPeriod, basal?: Basal) {
   row.innerHTML = `
     <p class="basal-period">${periodLabel(period)}</p>
     <div class="field">
-      <input class="basal-units" type="text" inputmode="decimal" autocomplete="off" aria-label="${periodLabel(period)} basal amount, ${periodHours(period)}" />
+      <input class="basal-units" type="text" inputmode="decimal" autocomplete="off" placeholder="0" aria-label="${periodLabel(period)} basal amount, ${periodHours(period)}" />
       <span class="basal-hours">${periodHours(period)}</span>
     </div>
     <p class="basal-history"></p>
@@ -467,6 +504,10 @@ function readDigits(input: HTMLInputElement, max: number): number {
   return Math.min(max, Number(digits))
 }
 
+function bigStep(): number {
+  return glucoseUnit === 'mgdl' ? 10 : 1
+}
+
 function splitCeiling(field: SplitField): number {
   return glucoseUnit === 'mgdl' ? field.mmolMax * 18 : field.mmolMax
 }
@@ -481,16 +522,42 @@ function readSplitParts(field: SplitField): { whole: number; decimal: number } {
   return { whole, decimal }
 }
 
+const textMeasure = document.createElement('canvas').getContext('2d')!
+
+function sizeStepInput(input: HTMLInputElement) {
+  const value = input.value.trim()
+  const next = input.nextElementSibling
+  if (next instanceof HTMLElement && next.classList.contains('ghost-decimal')) {
+    let ghostText = ''
+    if (value && input.placeholder.includes('.')) {
+      ghostText = value.endsWith('.') ? '0' : value.includes('.') ? '' : '.0'
+    }
+    next.textContent = ghostText
+    next.hidden = !ghostText
+  }
+  const style = getComputedStyle(input)
+  textMeasure.font = `${style.fontWeight} ${style.fontSize} ${style.fontFamily}`
+  const width = textMeasure.measureText(input.value || input.placeholder || '0').width
+  input.style.width = `${Math.ceil(width) + 2}px`
+  input.style.textAlign = 'center'
+}
+
+function sizeStepInputs() {
+  for (const input of document.querySelectorAll<HTMLInputElement>('.split input')) sizeStepInput(input)
+}
+
 function writeSplit(field: SplitField, whole: number, decimal: number) {
   const ceiling = splitCeiling(field)
   field.whole.value = String(whole)
   field.decimal.value = String(decimal)
+  sizeStepInput(field.whole)
+  sizeStepInput(field.decimal)
   const atFloor = whole === 0 && decimal === 0
   const atCeiling = whole >= ceiling
   field.wholeDown.disabled = atFloor
-  field.decimalDown.disabled = atFloor || glucoseUnit === 'mgdl'
+  field.decimalDown.disabled = atFloor
   field.wholeUp.disabled = atCeiling
-  field.decimalUp.disabled = atCeiling || glucoseUnit === 'mgdl'
+  field.decimalUp.disabled = atCeiling
 }
 
 function readSplitMmol(field: SplitField): number {
@@ -553,10 +620,14 @@ function stepSplitDecimal(field: SplitField, delta: number) {
 }
 
 function bindSplit(field: SplitField) {
-  field.wholeDown.addEventListener('click', () => stepSplitWhole(field, -1))
-  field.wholeUp.addEventListener('click', () => stepSplitWhole(field, 1))
-  field.decimalDown.addEventListener('click', () => stepSplitDecimal(field, -1))
-  field.decimalUp.addEventListener('click', () => stepSplitDecimal(field, 1))
+  field.wholeDown.addEventListener('click', () => stepSplitWhole(field, -bigStep()))
+  field.wholeUp.addEventListener('click', () => stepSplitWhole(field, bigStep()))
+  field.decimalDown.addEventListener('click', () =>
+    glucoseUnit === 'mgdl' ? stepSplitWhole(field, -1) : stepSplitDecimal(field, -1),
+  )
+  field.decimalUp.addEventListener('click', () =>
+    glucoseUnit === 'mgdl' ? stepSplitWhole(field, 1) : stepSplitDecimal(field, 1),
+  )
   field.whole.addEventListener('keydown', (event) => {
     if (glucoseUnit !== 'mmol') return
     if (event.key !== '.' && event.code !== 'NumpadDecimal') return
@@ -602,12 +673,14 @@ function writeGlucose(whole: number, decimal: number) {
   const ceiling = glucoseCeiling()
   wholeInput.value = String(whole)
   decimalInput.value = String(decimal)
+  sizeStepInput(wholeInput)
+  sizeStepInput(decimalInput)
   const atFloor = whole === 0 && decimal === 0
   const atCeiling = whole >= ceiling
   wholeDown.disabled = atFloor
-  decimalDown.disabled = atFloor || glucoseUnit === 'mgdl'
+  decimalDown.disabled = atFloor
   wholeUp.disabled = atCeiling
-  decimalUp.disabled = atCeiling || glucoseUnit === 'mgdl'
+  decimalUp.disabled = atCeiling
 }
 
 function readGlucoseMmol(): number {
@@ -632,7 +705,6 @@ function writeGlucoseFromMmol(mmol: number) {
 }
 
 function stepWhole(delta: number) {
-  doseReady = true
   glucoseFromLog = false
   const current = readGlucoseParts()
   const ceiling = glucoseCeiling()
@@ -644,7 +716,6 @@ function stepWhole(delta: number) {
 }
 
 function stepDecimal(delta: number) {
-  doseReady = true
   glucoseFromLog = false
   let { whole, decimal } = readGlucoseParts()
   decimal += delta
@@ -684,15 +755,12 @@ function readFibre(): number {
   return parsed
 }
 
-let pendingLog: {
-  glucoseMmol: number
-  insulinUnits: number
-  insulinStep: number
-  targetMmol: number
-  carbsGrams: number
-} | null = null
+function netCarbs(carbs: number): number {
+  return Math.max(0, carbs - readFibre())
+}
 
 let selectedLogKey = ''
+let latestFirst = true
 
 function paintLog(entries: LogEntry[]) {
   const today = todayDateKey()
@@ -702,37 +770,46 @@ function paintLog(entries: LogEntry[]) {
   logNext.disabled = selectedLogKey >= today
   logDateLabel.textContent = formatDateKey(selectedLogKey)
   logAddButton.textContent = `Save for ${formatLocalDateKey(selectedLogKey)}`
+  logAddDate.textContent = formatDateKey(selectedLogKey)
 
   const dayEntries = entries
     .filter((entry) => logDateKey(entry.at, entry.timeZone) === selectedLogKey)
     .sort((a, b) => Date.parse(a.at) - Date.parse(b.at) || a.id.localeCompare(b.id))
-  const unitLabel = glucoseUnitLabel(glucoseUnit)
+  if (latestFirst) dayEntries.reverse()
   const items = dayEntries
     .map((entry) => {
-      const glucose = `${formatGlucose(entry.glucoseMmol, glucoseUnit)} ${unitLabel}`
+      const reading = formatGlucose(entry.glucoseMmol, glucoseUnit)
+      const unit = glucoseUnitLabel(glucoseUnit)
+      const value = (text: string) => `<span class="log-value">${escapeHtml(text)}</span>`
+      const glucose = hasTarget(entry)
+        ? `${value(reading)} → Target: ${value(formatGlucose(entry.targetMmol, glucoseUnit))} ${escapeHtml(unit)}`
+        : `${value(reading)} ${escapeHtml(unit)}`
       const carbs =
-        entry.carbsGrams == null
-          ? '<span class="carbs">—</span>'
-          : entry.carbsGrams <= 0
-            ? ''
-            : `<span class="carbs">${escapeHtml(formatCarbs(entry.carbsGrams))}</span>`
-      const period = isBasalPeriod(entry.basalPeriod) ? `, ${periodLabel(entry.basalPeriod)}` : ''
+        entry.carbsGrams == null || entry.carbsGrams <= 0
+          ? ''
+          : `<span class="carbs">${escapeHtml(formatCarbohydrates(entry.carbsGrams))}</span>`
       const basal =
         entry.basalUnits == null || entry.basalUnits <= 0
           ? ''
-          : `<span class="basal">with ${escapeHtml(formatInsulin(entry.basalUnits, insulinStepFor(entry.basalUnits)))} basal${escapeHtml(period)}</span>`
-      const insulin =
+          : `<span class="basal">${escapeHtml(formatBasalUnits(entry.basalUnits))}</span>`
+      const bolus =
         entry.insulinUnits <= 0
           ? ''
-          : `<span class="dose">${escapeHtml(formatInsulin(entry.insulinUnits, entry.insulinStep))}</span>`
+          : `<span class="dose">${escapeHtml(formatBolusUnits(entry.insulinUnits, entry.insulinStep))}</span>`
+      const doses = bolus || basal ? `<div class="log-doses">${bolus}${basal}</div>` : ''
       const time = formatLogTime(entry.at, entry.timeZone)
       const note = entry.note ? `<p class="log-entry-note">${escapeHtml(entry.note)}</p>` : ''
-      return `<li class="log-entry"><time datetime="${escapeHtml(entry.at)}">${escapeHtml(time)}</time><div class="log-facts"><span class="glucose">${escapeHtml(glucose)}</span>${carbs}${insulin}${basal}</div><button type="button" class="log-remove" data-remove="${escapeHtml(entry.id)}" aria-label="Remove ${escapeHtml(time)}">×</button>${note}</li>`
+      return `<li class="log-entry"><time datetime="${escapeHtml(entry.at)}">${escapeHtml(time)}</time><div class="log-facts"><div class="log-reading"><span class="glucose">${glucose}</span>${carbs}</div>${doses}</div><button type="button" class="log-remove" data-remove="${escapeHtml(entry.id)}" aria-label="Remove ${escapeHtml(time)}">×</button>${note}</li>`
     })
     .join('')
   const graph = dayEntries.length === 0 ? '' : dayGraphSvg(dayEntries, glucoseUnit)
   const empty = dayEntries.length === 0 ? '<p class="log-empty">Nothing saved this day.</p>' : ''
-  logList.innerHTML = `<section class="card log-day-card">${graph}${empty}<ol class="log-entries">${items}</ol></section>`
+  const orderLabel = latestFirst ? 'Latest first' : 'Earliest first'
+  const orderToggle = `<button type="button" class="log-order" data-order aria-label="${orderLabel}. Swap order">${orderLabel}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4v16M4 16l4 4 4-4M16 20V4M12 8l4-4 4 4"></path></svg></button>`
+  const list = items
+    ? `<div class="log-entries-head"><h3 class="section-heading">Log entries</h3>${orderToggle}</div><ol class="log-entries ${latestFirst ? 'time-up' : 'time-down'}">${items}</ol>`
+    : ''
+  logList.innerHTML = `<section class="card log-day-card">${graph}${empty}</section>${list}`
 }
 
 function closeOnBackdrop(dialog: HTMLDialogElement) {
@@ -748,6 +825,7 @@ function closeOnBackdrop(dialog: HTMLDialogElement) {
 }
 
 function render() {
+  paintNetCarbs(netCarbsEl, readCarbs(), readFibre())
   try {
     renderDose()
   } finally {
@@ -761,27 +839,16 @@ function renderDose() {
   const carbs = readCarbs()
   const fibre = readFibre()
   const unitLabel = glucoseUnitLabel(glucoseUnit)
-  pendingLog = null
-  saveLogButton.disabled = true
-  saveLogButton.hidden = true
   saveNote.textContent = ''
   saveNote.classList.remove('is-error')
-  const notePending = entryNote.value.trim().length > 0
-  glucoseSource.hidden = !glucoseFromLog || notePending
-
-  if (!doseReady) {
-    resultEl.hidden = true
-    resultEl.className = 'result'
-    resultEl.replaceChildren()
-    if (notePending) showSaveForCurrentReading(settings, glucose, carbs)
-    return
-  }
+  glucoseSource.hidden = !glucoseFromLog
   resultEl.hidden = false
+  targetCard.hidden = true
 
   if (!(glucose > 0)) {
     resultEl.className = 'result insulin'
     resultEl.innerHTML = `
-      <p class="kicker">Insulin</p>
+      <p class="kicker">Calculated bolus</p>
       <p class="figure">0<span>units</span></p>
       <p class="detail">Set a glucose above 0 ${escapeHtml(unitLabel)}.</p>
     `
@@ -801,8 +868,6 @@ function renderDose() {
     return
   }
 
-  showSaveForCurrentReading(settings, glucose, carbs, result.value.insulinUnits)
-
   const copy = describeDose(result.value, {
     glucoseMmol: glucose,
     carbsGrams: carbs,
@@ -810,25 +875,30 @@ function renderDose() {
     glucoseUnit,
   })
   const working = copy.working.map((line) => `<li>${escapeHtml(line)}</li>`).join('')
-  resultEl.className = `result ${result.value.action}`
-  resultEl.innerHTML = `
-    <p class="kicker">${escapeHtml(copy.kicker)}</p>
-    <p class="figure">${escapeHtml(copy.figure)}<span>${escapeHtml(copy.unit)}</span></p>
+  const noBolus = result.value.insulinUnits <= 0
+  const headline = noBolus
+    ? '<p class="no-bolus-copy">No bolus dosage required</p>'
+    : `<p class="kicker">${escapeHtml(copy.kicker)}</p>
+    <p class="figure">${escapeHtml(copy.figure)}<span>${escapeHtml(copy.unit)}</span></p>`
+  resultEl.className = `result ${noBolus ? 'no-bolus' : result.value.action}`
+  resultEl.innerHTML = headline
+  targetDetail.innerHTML = `
+    <div class="result insulin"><p class="figure">${escapeHtml(copy.after)}<span>${escapeHtml(copy.afterUnit)}</span></p></div>
     ${copy.carbCallout ? `<p class="carb-callout">${escapeHtml(copy.carbCallout)}</p>` : ''}
-    <p class="after"><span>After this</span>${escapeHtml(copy.after)}</p>
     <details class="working">
       <summary>Show the working</summary>
       <ul>${working}</ul>
     </details>
   `
+  targetCard.hidden = !(carbs > 0 || !noBolus || copy.carbCallout)
 }
 
 form.addEventListener('submit', (event) => event.preventDefault())
 
-wholeDown.addEventListener('click', () => stepWhole(-1))
-wholeUp.addEventListener('click', () => stepWhole(1))
-decimalDown.addEventListener('click', () => stepDecimal(-1))
-decimalUp.addEventListener('click', () => stepDecimal(1))
+wholeDown.addEventListener('click', () => stepWhole(-bigStep()))
+wholeUp.addEventListener('click', () => stepWhole(bigStep()))
+decimalDown.addEventListener('click', () => (glucoseUnit === 'mgdl' ? stepWhole(-1) : stepDecimal(-1)))
+decimalUp.addEventListener('click', () => (glucoseUnit === 'mgdl' ? stepWhole(1) : stepDecimal(1)))
 
 wholeInput.addEventListener('keydown', (event) => {
   if (glucoseUnit !== 'mmol') return
@@ -839,7 +909,6 @@ wholeInput.addEventListener('keydown', (event) => {
 })
 
 wholeInput.addEventListener('input', () => {
-  doseReady = true
   glucoseFromLog = false
   const ceiling = glucoseCeiling()
   const whole = readDigits(wholeInput, ceiling)
@@ -851,7 +920,6 @@ wholeInput.addEventListener('input', () => {
 })
 
 decimalInput.addEventListener('input', () => {
-  doseReady = true
   glucoseFromLog = false
   const decimal = decimalInput.value.replace(/\D/g, '').slice(-1) || '0'
   const parts = readGlucoseParts()
@@ -859,10 +927,10 @@ decimalInput.addEventListener('input', () => {
   render()
 })
 
-targetWholeDown.addEventListener('click', () => stepTargetWhole(-1))
-targetWholeUp.addEventListener('click', () => stepTargetWhole(1))
-targetDecimalDown.addEventListener('click', () => stepTargetDecimal(-1))
-targetDecimalUp.addEventListener('click', () => stepTargetDecimal(1))
+targetWholeDown.addEventListener('click', () => stepTargetWhole(-bigStep()))
+targetWholeUp.addEventListener('click', () => stepTargetWhole(bigStep()))
+targetDecimalDown.addEventListener('click', () => (glucoseUnit === 'mgdl' ? stepTargetWhole(-1) : stepTargetDecimal(-1)))
+targetDecimalUp.addEventListener('click', () => (glucoseUnit === 'mgdl' ? stepTargetWhole(1) : stepTargetDecimal(1)))
 
 targetWholeInput.addEventListener('keydown', (event) => {
   if (glucoseUnit !== 'mmol') return
@@ -907,13 +975,32 @@ for (const input of unitInputs) {
   })
 }
 
+function stepCarbs(delta: number) {
+  carbsInput.value = String(Number(Math.max(0, readCarbs() + delta).toFixed(2)))
+  carbsInput.dispatchEvent(new Event('input', { bubbles: true }))
+}
+
+document.querySelector('#carbs-down-10')!.addEventListener('click', () => stepCarbs(-10))
+document.querySelector('#carbs-up-10')!.addEventListener('click', () => stepCarbs(10))
+document.querySelector('#carbs-down-1')!.addEventListener('click', () => stepCarbs(-1))
+document.querySelector('#carbs-up-1')!.addEventListener('click', () => stepCarbs(1))
+
+function stepFibre(delta: number) {
+  const current = parseDecimal(fibreInput.value) ?? 0
+  fibreInput.value = String(Number(Math.max(0, current + delta).toFixed(2)))
+  fibreInput.dispatchEvent(new Event('input', { bubbles: true }))
+}
+
+document.querySelector('#fibre-down-10')!.addEventListener('click', () => stepFibre(-10))
+document.querySelector('#fibre-up-10')!.addEventListener('click', () => stepFibre(10))
+document.querySelector('#fibre-down-1')!.addEventListener('click', () => stepFibre(-1))
+document.querySelector('#fibre-up-1')!.addEventListener('click', () => stepFibre(1))
+
 carbsInput.addEventListener('input', () => {
-  doseReady = true
   glucoseFromLog = false
   render()
 })
 fibreInput.addEventListener('input', () => {
-  doseReady = true
   glucoseFromLog = false
   render()
 })
@@ -960,57 +1047,42 @@ deleteConfirmButton.addEventListener('click', () => {
   fibreInput.value = '0'
   entryNote.value = ''
   entryNoteDetails.open = false
-  addGlucose.value = ''
-  addCarbs.value = ''
-  addInsulin.value = ''
-  addNote.value = ''
-  addError.textContent = ''
-  logAddForm.hidden = true
-  logAddOpen.hidden = false
-  doseReady = false
+  clearAddForm()
   glucoseFromLog = false
   writeGlucoseFromMmol(6)
   render()
   if (logDialog.open) paintLog([])
 })
 
-entryNoteDetails.addEventListener('toggle', () => {
-  if (!entryNoteDetails.open) return
-  requestAnimationFrame(() => entryNote.focus())
-})
+function revealNote(details: HTMLDetailsElement, note: HTMLTextAreaElement) {
+  if (!details.open) return
+  requestAnimationFrame(() => {
+    note.focus({ preventScroll: true })
+    const card = details.closest<HTMLElement>('.card') ?? details
+    const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    card.scrollIntoView({ block: 'end', behavior: smooth ? 'smooth' : 'auto' })
+  })
+}
+entryNoteDetails.addEventListener('toggle', () => revealNote(entryNoteDetails, entryNote))
+addNoteDetails.addEventListener('toggle', () => revealNote(addNoteDetails, addNote))
 
 entryNote.addEventListener('input', () => {
   render()
 })
 
-function showSaveForCurrentReading(
-  settings: Settings,
-  glucose: number,
-  carbs: number,
-  insulinUnits?: number,
-) {
-  if (!(glucose > 0)) return
-  let units = insulinUnits
-  if (units === undefined) {
-    const result = calculate({
-      glucoseMmol: glucose,
-      carbsGrams: carbs,
-      fibreGrams: readFibre(),
-      settings,
-      glucoseUnit,
-    })
-    if (!result.ok) return
-    units = result.value.insulinUnits
-  }
-  pendingLog = {
-    glucoseMmol: glucose,
-    insulinUnits: units,
-    insulinStep: settings.insulinStep,
-    targetMmol: settings.targetMmol,
-    carbsGrams: carbs,
-  }
-  saveLogButton.disabled = false
-  saveLogButton.hidden = false
+let toastTimer = 0
+
+function showToast(message: string) {
+  window.clearTimeout(toastTimer)
+  toast.textContent = message
+  if (toast.matches(':popover-open')) toast.hidePopover()
+  toast.classList.remove('is-visible')
+  toast.showPopover()
+  requestAnimationFrame(() => requestAnimationFrame(() => toast.classList.add('is-visible')))
+  toastTimer = window.setTimeout(() => {
+    toast.classList.remove('is-visible')
+    toastTimer = window.setTimeout(() => toast.hidePopover(), 400)
+  }, 3000)
 }
 
 function storeLogEntry(payload: {
@@ -1035,23 +1107,20 @@ function storeLogEntry(payload: {
   entryNote.value = ''
   entryNoteDetails.open = false
   withBasalInput.checked = false
-  doseReady = false
-  glucoseFromLog = true
-  writeGlucoseFromMmol(entry.targetMmol)
-  render()
-  saveNote.textContent = `Saved at ${formatLogTime(entry.at, entry.timeZone)}.`
-  if (logDialog.open) {
-    selectedLogKey = logDateKey(entry.at, entry.timeZone)
-    paintLog(loadLog())
+  const loggedTarget = latestTargetMmol(entries)
+  if (loggedTarget !== null) {
+    glucoseFromLog = true
+    writeGlucoseFromMmol(loggedTarget)
   }
+  render()
+  selectedLogKey = logDateKey(entry.at, entry.timeZone)
+  if (!addTime.value) addTime.value = currentClock().time
+  paintLog(loadLog())
+  if (!logDialog.open) logDialog.showModal()
+  showToast(`Saved log entry for ${formatLogTime(entry.at, entry.timeZone)}`)
 }
 
 saveLogButton.addEventListener('click', () => {
-  if (!pendingLog) return
-  storeLogEntry(pendingLog)
-})
-
-saveAnywayButton.addEventListener('click', () => {
   const settings = readSettings()
   const glucose = readGlucoseMmol()
   const carbs = readCarbs()
@@ -1077,8 +1146,8 @@ saveAnywayButton.addEventListener('click', () => {
     glucoseMmol: glucose,
     insulinUnits: result.value.insulinUnits,
     insulinStep: settings.insulinStep,
-    targetMmol: settings.targetMmol,
-    carbsGrams: carbs,
+    targetMmol: result.value.projectedMmol,
+    carbsGrams: netCarbs(carbs),
   })
 })
 
@@ -1089,7 +1158,7 @@ logAddForm.addEventListener('submit', (event) => {
     addError.textContent = when.message
     return
   }
-  const glucose = readAddGlucose()
+  const glucose = readGlucoseField(addGlucose)
   if (glucose === null) {
     addError.textContent = 'Enter a glucose reading above 0.'
     return
@@ -1099,12 +1168,22 @@ logAddForm.addEventListener('submit', (event) => {
     addError.textContent = 'Enter carbohydrate from 0 to 500 grams.'
     return
   }
+  const fibre = showFibre ? readOptionalAmount(addFibre, 500) : 0
+  if (fibre === null) {
+    addError.textContent = 'Enter fibre from 0 to 500 grams.'
+    return
+  }
   const insulin = readOptionalAmount(addInsulin, 100)
   if (insulin === null) {
     addError.textContent = 'Enter insulin from 0 to 100 units.'
     return
   }
-  const settings = readSettings()
+  const netCarbGrams = Math.max(0, carbs - fibre)
+  const target = addTarget.value.trim() ? readGlucoseField(addTarget) : addTargetMmol(glucose, netCarbGrams, insulin)
+  if (target === null) {
+    addError.textContent = 'Enter a target above 0.'
+    return
+  }
   const basal = checkedBasal(
     addWithBasal,
     logDateKey(when.at.toISOString(), browserTimeZone()),
@@ -1115,8 +1194,8 @@ logAddForm.addEventListener('submit', (event) => {
       glucoseMmol: glucose,
       insulinUnits: insulin,
       insulinStep: insulinStepFor(insulin),
-      targetMmol: settingsAreValid(settings) ? settings.targetMmol : DEFAULT_SETTINGS.targetMmol,
-      carbsGrams: carbs,
+      targetMmol: target,
+      carbsGrams: netCarbGrams,
       note: addNote.value,
       basalUnits: basal?.units ?? null,
       basalPeriod: basal?.period ?? null,
@@ -1126,16 +1205,89 @@ logAddForm.addEventListener('submit', (event) => {
   const entries = loadLog()
   entries.push(entry)
   saveLog(entries)
-  addGlucose.value = ''
-  addCarbs.value = ''
-  addInsulin.value = ''
-  addNote.value = ''
-  addWithBasal.checked = false
-  addError.textContent = ''
-  logAddForm.hidden = true
-  logAddOpen.hidden = false
+  clearAddForm()
+  logAddDialog.close()
   paintAddBasal()
   paintLog(loadLog())
+  showToast(`Saved log entry for ${formatLogTime(entry.at, entry.timeZone)}`)
+})
+
+let addTargetEdited = false
+
+function clearAddForm() {
+  addGlucose.value = ''
+  addCarbs.value = ''
+  addFibre.value = ''
+  addInsulin.value = ''
+  addTarget.value = ''
+  addNote.value = ''
+  addNoteDetails.open = false
+  addWithBasal.checked = false
+  addError.textContent = ''
+  addTargetEdited = false
+  addTargetHelp.hidden = false
+  addNetCarbs.hidden = true
+  paintAddInsulinUnit()
+  sizeStepInputs()
+}
+
+function paintAddInsulinUnit() {
+  addInsulinUnit.textContent = parseDecimal(addInsulin.value) === 1 ? 'unit' : 'units'
+}
+
+function addTargetMmol(glucose: number, netCarbGrams: number, insulin: number): number {
+  const settings = readSettings()
+  const { mmolRisePer10g, mmolFallPerUnit } = settingsAreValid(settings) ? settings : DEFAULT_SETTINGS
+  return Math.max(0, glucose + netCarbGrams * (mmolRisePer10g / 10) - insulin * mmolFallPerUnit)
+}
+
+function paintAddTarget() {
+  if (addTargetEdited) return
+  const glucose = readGlucoseField(addGlucose)
+  const carbs = readOptionalAmount(addCarbs, 500) ?? 0
+  const fibre = showFibre ? readOptionalAmount(addFibre, 500) ?? 0 : 0
+  const insulin = readOptionalAmount(addInsulin, 100) ?? 0
+  addTarget.value = glucose === null ? '' : formatGlucose(addTargetMmol(glucose, Math.max(0, carbs - fibre), insulin), glucoseUnit)
+}
+
+function stepAddField(input: HTMLInputElement, size: 'big' | 'small', direction: number) {
+  const mgdl = glucoseUnit === 'mgdl'
+  const steps: Record<string, { big: number; small: number; decimals: number }> = {
+    'add-glucose': { big: mgdl ? 10 : 1, small: mgdl ? 1 : 0.1, decimals: mgdl ? 0 : 1 },
+    'add-target': { big: mgdl ? 10 : 1, small: mgdl ? 1 : 0.1, decimals: mgdl ? 0 : 1 },
+    'add-carbs': { big: 10, small: 1, decimals: 0 },
+    'add-fibre': { big: 10, small: 1, decimals: 0 },
+    'add-insulin': { big: 1, small: readSettings().insulinStep || 0.5, decimals: 2 },
+  }
+  const step = steps[input.id]
+  if (!step) return
+  const current = parseDecimal(input.value) ?? 0
+  const next = Math.max(0, current + direction * step[size])
+  input.value = String(Number(next.toFixed(step.decimals)))
+  input.dispatchEvent(new Event('input', { bubbles: true }))
+}
+
+logAddForm.addEventListener('click', (event) => {
+  const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button[data-step-input]')
+  if (!button) return
+  const input = document.getElementById(button.dataset.stepInput!) as HTMLInputElement | null
+  if (!input) return
+  stepAddField(input, button.dataset.stepSize === 'big' ? 'big' : 'small', Number(button.dataset.stepDir))
+})
+
+logAddForm.addEventListener('input', (event) => {
+  const target = event.target as HTMLElement
+  if (target === addTarget) {
+    addTargetEdited = addTarget.value.trim() !== ''
+    addTargetHelp.hidden = addTargetEdited
+    if (!addTargetEdited) paintAddTarget()
+    return
+  }
+  if (target === addInsulin) paintAddInsulinUnit()
+  if (target === addCarbs || target === addFibre) {
+    paintNetCarbs(addNetCarbs, readOptionalAmount(addCarbs, 500) ?? 0, showFibre ? readOptionalAmount(addFibre, 500) ?? 0 : 0)
+  }
+  if (target === addGlucose || target === addCarbs || target === addFibre || target === addInsulin) paintAddTarget()
 })
 
 function currentClock(): { date: string; time: string } {
@@ -1166,8 +1318,8 @@ function readOptionalAmount(input: HTMLInputElement, max: number): number | null
   return Math.round(parsed * 100) / 100
 }
 
-function readAddGlucose(): number | null {
-  const parsed = parseDecimal(addGlucose.value)
+function readGlucoseField(input: HTMLInputElement): number | null {
+  const parsed = parseDecimal(input.value)
   if (parsed === null || parsed <= 0) return null
   if (glucoseUnit === 'mgdl') {
     const mg = Math.round(parsed)
@@ -1181,14 +1333,16 @@ function readAddGlucose(): number | null {
 
 logAddOpen.addEventListener('click', () => {
   if (!addTime.value) addTime.value = currentClock().time
+  paintAddTime()
   paintAddBasal()
-  logAddForm.hidden = false
-  logAddOpen.hidden = true
-  logAddForm.scrollIntoView({ block: 'nearest' })
+  addError.textContent = ''
+  addInsulin.placeholder = Number.isInteger(readSettings().insulinStep) ? '0' : '0.0'
+  paintAddTarget()
+  sizeStepInputs()
+  logAddDialog.showModal()
 })
 logAddClose.addEventListener('click', () => {
-  logAddForm.hidden = true
-  logAddOpen.hidden = false
+  logAddDialog.close()
   addError.textContent = ''
 })
 logOpen.addEventListener('click', () => {
@@ -1223,6 +1377,12 @@ logDate.addEventListener('change', () => {
   paintAddBasal()
 })
 logList.addEventListener('click', (event) => {
+  if ((event.target as Element).closest('[data-order]')) {
+    latestFirst = !latestFirst
+    paintLog(loadLog())
+    logList.querySelector<HTMLButtonElement>('[data-order]')?.focus()
+    return
+  }
   const button = (event.target as Element).closest<HTMLButtonElement>('[data-remove]')
   if (!button?.dataset.remove) return
   saveLog(loadLog().filter((entry) => entry.id !== button.dataset.remove))
@@ -1317,17 +1477,60 @@ function onBasalEdit(event: Event) {
 }
 basalList.addEventListener('input', onBasalEdit)
 basalList.addEventListener('change', onBasalEdit)
-addTime.addEventListener('input', () => paintAddBasal())
-addTime.addEventListener('change', () => paintAddBasal())
+let addMeridiem: 'am' | 'pm' = 'am'
 
-const ratios = document.querySelector<HTMLDetailsElement>('#ratios')!
-ratios.open = false
-window.addEventListener('pageshow', (event) => {
-  if (event.persisted) ratios.open = false
+function paintAddTime() {
+  const match = /^(\d{2}):(\d{2})$/.exec(addTime.value)
+  if (!match) return
+  const hours = Number(match[1])
+  addMeridiem = hours >= 12 ? 'pm' : 'am'
+  addHour.value = String(hours % 12 || 12)
+  addMinute.value = match[2]
+  paintMeridiem()
+}
+
+function paintMeridiem() {
+  for (const button of meridiemButtons) {
+    button.setAttribute('aria-pressed', String(button.dataset.meridiem === addMeridiem))
+  }
+}
+
+function syncAddTime() {
+  const hour = Number(addHour.value)
+  const minute = Number(addMinute.value)
+  const valid =
+    /^\d{1,2}$/.test(addHour.value) && /^\d{1,2}$/.test(addMinute.value) && hour >= 1 && hour <= 12 && minute <= 59
+  const hours24 = (hour % 12) + (addMeridiem === 'pm' ? 12 : 0)
+  addTime.value = valid ? `${String(hours24).padStart(2, '0')}:${String(minute).padStart(2, '0')}` : ''
+  paintAddBasal()
+}
+
+addHour.addEventListener('input', () => {
+  syncAddTime()
+  if (addHour.value.length === 2 || Number(addHour.value) > 1) addMinute.focus()
 })
+addMinute.addEventListener('input', syncAddTime)
+addMinute.addEventListener('blur', () => {
+  if (/^\d$/.test(addMinute.value)) addMinute.value = `0${addMinute.value}`
+})
+for (const button of meridiemButtons) {
+  button.addEventListener('click', () => {
+    addMeridiem = button.dataset.meridiem === 'pm' ? 'pm' : 'am'
+    paintMeridiem()
+    syncAddTime()
+  })
+}
+
+const settingsDialog = document.querySelector<HTMLDialogElement>('#settings')!
+document.querySelector<HTMLButtonElement>('#settings-open')!.addEventListener('click', () => settingsDialog.showModal())
+document.querySelector<HTMLButtonElement>('#settings-close')!.addEventListener('click', () => settingsDialog.close())
+closeOnBackdrop(settingsDialog)
+
+document.addEventListener('input', () => queueMicrotask(sizeStepInputs))
 
 loadSettings()
 const loggedTarget = latestTargetMmol(loadLog())
 glucoseFromLog = loggedTarget !== null
 writeGlucoseFromMmol(loggedTarget ?? 6)
 render()
+sizeStepInputs()

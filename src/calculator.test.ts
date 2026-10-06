@@ -157,7 +157,7 @@ describe('wording', () => {
       carbsGrams: 0,
       settings,
     })
-    expect(copy.kicker).toBe('Insulin')
+    expect(copy.kicker).toBe('Calculated bolus')
     expect(copy.figure).toBe('0.0')
     expect(copy.unit).toBe('units')
     expect(copy.carbCallout).toBe('Eat 10 g')
@@ -173,7 +173,7 @@ describe('wording', () => {
       carbsGrams: 0,
       settings,
     })
-    expect(copy.kicker).toBe('Insulin')
+    expect(copy.kicker).toBe('Calculated bolus')
     expect(copy.figure).toBe('0.0')
     expect(copy.carbCallout).toBeNull()
   })
@@ -189,7 +189,8 @@ describe('wording', () => {
       glucoseUnit: 'mgdl',
     })
     expect(copy.figure).toBe('2.0')
-    expect(copy.after).toBe('108 mg/dL')
+    expect(copy.after).toBe('108')
+    expect(copy.afterUnit).toBe('mg/dL')
     expect(copy.working.some((line) => line.includes('54 mg/dL'))).toBe(true)
   })
 

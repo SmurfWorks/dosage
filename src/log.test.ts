@@ -2,8 +2,12 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   createLogEntry,
   dateInTimeZone,
+  formatBasalUnits,
+  formatBolusUnits,
+  formatCarbohydrates,
   formatCarbs,
   groupLog,
+  hasTarget,
   latestTargetMmol,
   loadLog,
   logDateKey,
@@ -81,6 +85,18 @@ describe('log dates in the browser timezone', () => {
   })
 })
 
+describe('log entry target', () => {
+  it('has a target with carbohydrate or bolus units', () => {
+    expect(hasTarget(entry({ insulinUnits: 0, carbsGrams: 20 }))).toBe(true)
+    expect(hasTarget(entry({ insulinUnits: 1.5, carbsGrams: 0 }))).toBe(true)
+  })
+
+  it('has no target with neither', () => {
+    expect(hasTarget(entry({ insulinUnits: 0, carbsGrams: 0 }))).toBe(false)
+    expect(hasTarget(entry({ insulinUnits: 0, carbsGrams: null, basalUnits: 22 }))).toBe(false)
+  })
+})
+
 describe('starting glucose', () => {
   it('uses the target from the newest log entry', () => {
     const target = latestTargetMmol([
@@ -88,6 +104,14 @@ describe('starting glucose', () => {
       entry({ at: '2026-10-05T12:00:00.000Z', targetMmol: 7.5 }),
     ])
     expect(target).toBe(7.5)
+  })
+
+  it('skips newer entries with no carbohydrate or bolus', () => {
+    const target = latestTargetMmol([
+      entry({ at: '2026-10-01T12:00:00.000Z', targetMmol: 6, insulinUnits: 0, carbsGrams: 40 }),
+      entry({ at: '2026-10-05T12:00:00.000Z', targetMmol: 7.5, insulinUnits: 0, carbsGrams: 0, basalUnits: 22 }),
+    ])
+    expect(target).toBe(6)
   })
 
   it('has no target when the log is empty', () => {
@@ -104,6 +128,12 @@ describe('carbohydrate on a log entry', () => {
     )
     expect(saved.carbsGrams).toBe(30)
     expect(formatCarbs(30)).toBe('30 g')
+    expect(formatBasalUnits(22)).toBe('22 basal units')
+    expect(formatBasalUnits(7.5)).toBe('7.5 basal units')
+    expect(formatBasalUnits(1)).toBe('1 basal unit')
+    expect(formatBolusUnits(3.5, 0.5)).toBe('3.5 bolus units')
+    expect(formatBolusUnits(1, 1)).toBe('1 bolus unit')
+    expect(formatCarbohydrates(34)).toBe('34g of carbohydrates')
     expect(saved.note).toBe('Pizza, then a walk')
     expect(saved.basalUnits).toBeNull()
     expect(saved.basalPeriod).toBeNull()

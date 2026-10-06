@@ -1,5 +1,4 @@
-import { isBasalPeriod, periodLabel } from './basal'
-import { formatCarbs, formatInsulin, insulinStepFor, logMinutesOfDay, type LogEntry } from './log'
+import { formatBasalUnits, formatCarbs, hasTarget, latestTargetMmol, logMinutesOfDay, type LogEntry } from './log'
 import { formatGlucose, glucoseUnitLabel, type GlucoseUnit } from './units'
 
 const WIDTH = 360
@@ -13,7 +12,7 @@ const PLOT_HEIGHT = HEIGHT - TOP - BOTTOM
 
 export function dayGraphSvg(entries: LogEntry[], unit: GlucoseUnit): string {
   const points = [...entries].sort((a, b) => Date.parse(a.at) - Date.parse(b.at))
-  const target = points[points.length - 1]?.targetMmol
+  const target = latestTargetMmol(points) ?? undefined
   const bounds = axisBounds(points.map((entry) => entry.glucoseMmol), target, unit)
   const placed = points.map((entry) => ({
     entry,
@@ -45,17 +44,19 @@ export function dayGraphSvg(entries: LogEntry[], unit: GlucoseUnit): string {
   const dots = placed
     .map((point) => {
       const reading = `${formatGlucose(point.entry.glucoseMmol, unit)} ${unitLabel}`
+      const target = hasTarget(point.entry)
+        ? `, aiming for ${formatGlucose(point.entry.targetMmol, unit)} ${unitLabel}`
+        : ''
       const carbs =
         point.entry.carbsGrams == null || point.entry.carbsGrams <= 0
           ? ''
           : `, ${formatCarbs(point.entry.carbsGrams)}`
       const note = point.entry.note ? `. ${point.entry.note}` : ''
-      const period = isBasalPeriod(point.entry.basalPeriod) ? `, ${periodLabel(point.entry.basalPeriod)}` : ''
       const basal =
-        point.entry.basalUnits == null
+        point.entry.basalUnits == null || point.entry.basalUnits <= 0
           ? ''
-          : `, with ${formatInsulin(point.entry.basalUnits, insulinStepFor(point.entry.basalUnits))} basal${period}`
-      const title = `${formatClock(point.entry)}, ${reading}${carbs}${basal}${note}`
+          : `, ${formatBasalUnits(point.entry.basalUnits)}`
+      const title = `${formatClock(point.entry)}, ${reading}${target}${carbs}${basal}${note}`
       return `<circle class="point" cx="${point.x}" cy="${point.y}" r="4"><title>${escapeXml(title)}</title></circle>`
     })
     .join('')

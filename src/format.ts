@@ -7,6 +7,7 @@ export type DoseCopy = {
   unit: string
   carbCallout: string | null
   after: string
+  afterUnit: string
   working: string[]
 }
 
@@ -73,11 +74,12 @@ export function describeDose(
   }
 
   return {
-    kicker: 'Insulin',
+    kicker: 'Calculated bolus',
     figure,
     unit,
     carbCallout,
-    after: `${shown(calc.projectedMmol)} ${unitName}`,
+    after: shown(calc.projectedMmol),
+    afterUnit: unitName,
     working,
   }
 }

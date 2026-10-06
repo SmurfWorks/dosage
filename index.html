@@ -17,23 +17,31 @@
   <body>
     <div class="app">
       <header>
-        <p class="eyebrow">Bolus Insulin calculator</p>
+        <div class="eyebrow-row">
+          <p class="eyebrow">Bolus Insulin calculator</p>
+          <button id="about-open" class="about" type="button" aria-haspopup="dialog" aria-controls="about" aria-label="About this calculator">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="9"></circle>
+              <path d="M9.4 9.3a2.6 2.6 0 1 1 3.3 2.5c-.8.3-1.2.9-1.2 1.7V14.2"></path>
+              <circle cx="11.5" cy="17.2" r="0.9"></circle>
+            </svg>
+          </button>
+        </div>
         <div class="title-row">
           <h1>Dosage helper</h1>
           <div class="title-actions">
-            <button id="about-open" class="header-icon about" type="button" aria-haspopup="dialog" aria-controls="about" aria-label="About this calculator">
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <circle cx="12" cy="12" r="9"></circle>
-                <path d="M9.4 9.3a2.6 2.6 0 1 1 3.3 2.5c-.8.3-1.2.9-1.2 1.7V14.2"></path>
-                <circle cx="11.5" cy="17.2" r="0.9"></circle>
-              </svg>
-            </button>
             <button id="log-open" class="header-icon" type="button" aria-haspopup="dialog" aria-controls="log" aria-label="View log">
               <svg viewBox="0 0 24 24" aria-hidden="true">
                 <path d="M9 6.5h10M9 12h10M9 17.5h10"></path>
                 <circle cx="5" cy="6.5" r="1.15"></circle>
                 <circle cx="5" cy="12" r="1.15"></circle>
                 <circle cx="5" cy="17.5" r="1.15"></circle>
+              </svg>
+            </button>
+            <button id="settings-open" class="header-icon" type="button" aria-haspopup="dialog" aria-controls="settings" aria-label="Set your routine">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"></path>
+                <circle cx="12" cy="12" r="3"></circle>
               </svg>
             </button>
           </div>
@@ -48,10 +56,12 @@
         </div>
       </div>
 
-      <main class="card">
+      <h2 class="section-heading">Enter your current status</h2>
+      <main>
         <form id="dose-form">
+          <section class="card">
           <div class="glucose-head">
-            <p id="glucose-label" class="control-label">Current glucose</p>
+            <p id="glucose-label" class="control-label">Current Glucose Reading</p>
             <p id="glucose-unit-label" class="unit-label">mmol/L</p>
           </div>
           <div class="split" role="group" aria-labelledby="glucose-label">
@@ -60,9 +70,9 @@
             <button id="whole-up" type="button" aria-label="Raise the whole number">+</button>
             </div>
             <div class="split-value">
-              <input id="glucose-whole" inputmode="numeric" autocomplete="off" value="6" aria-label="Whole number" />
+              <input id="glucose-whole" inputmode="numeric" autocomplete="off" value="6" placeholder="0" aria-label="Whole number" />
               <span id="glucose-point" class="point" aria-hidden="true">.</span>
-              <input id="glucose-decimal" class="tenth" inputmode="numeric" maxlength="1" autocomplete="off" value="0" aria-label="Decimal" />
+              <input id="glucose-decimal" class="tenth" inputmode="numeric" maxlength="1" autocomplete="off" value="0" placeholder="0" aria-label="Decimal" />
             </div>
             <div class="step-pill tenth">
             <button id="decimal-down" class="tenth" type="button" aria-label="Lower the decimal">−</button>
@@ -75,66 +85,108 @@
                 <path d="M12 19V6"></path>
                 <path d="m6.5 11.5 5.5-5.5 5.5 5.5"></path>
               </svg>
-              <span>Current glucose above is from your last log entry's target.</span>
+              <span>Current glucose above is from your last log entry with a target.</span>
             </p>
-            <button id="save-log-anyway" type="button">Save to log anyway</button>
           </div>
+          </section>
 
-          <div id="carbs-wrap">
-            <label for="carbs">Carbohydrate</label>
-            <div class="field">
-              <input id="carbs" name="carbs" type="text" inputmode="decimal" autocomplete="off" value="0" />
-              <span class="suffix">grams</span>
+          <section id="carbs-wrap" class="card">
+            <label for="carbs">Carbs</label>
+            <div class="split carb-split">
+              <div class="step-pill">
+                <button id="carbs-down-10" type="button" aria-label="Lower carbohydrate by 10 grams">−</button>
+                <button id="carbs-up-10" type="button" aria-label="Raise carbohydrate by 10 grams">+</button>
+              </div>
+              <div class="split-value">
+                <input id="carbs" name="carbs" type="text" inputmode="decimal" autocomplete="off" placeholder="0" value="0" />
+                <span class="carb-unit">g</span>
+              </div>
+              <div class="step-pill">
+                <button id="carbs-down-1" type="button" aria-label="Lower carbohydrate by 1 gram">−</button>
+                <button id="carbs-up-1" type="button" aria-label="Raise carbohydrate by 1 gram">+</button>
+              </div>
             </div>
             <div id="fibre-wrap" class="fibre">
               <label for="fibre">Fibre</label>
-              <div class="field">
-                <input id="fibre" name="fibre" type="text" inputmode="decimal" autocomplete="off" value="0" />
-                <span class="suffix">grams</span>
+              <div class="split carb-split fibre-split">
+                <div class="step-pill">
+                  <button id="fibre-down-10" type="button" aria-label="Lower fibre by 10 grams">−</button>
+                  <button id="fibre-up-10" type="button" aria-label="Raise fibre by 10 grams">+</button>
+                </div>
+                <div class="split-value">
+                  <input id="fibre" name="fibre" type="text" inputmode="decimal" autocomplete="off" placeholder="0" value="0" />
+                  <span class="carb-unit">g</span>
+                </div>
+                <div class="step-pill">
+                  <button id="fibre-down-1" type="button" aria-label="Lower fibre by 1 gram">−</button>
+                  <button id="fibre-up-1" type="button" aria-label="Raise fibre by 1 gram">+</button>
+                </div>
               </div>
             </div>
-          </div>
+            <div id="net-carbs" class="net-carbs" hidden><p></p></div>
+          </section>
 
-          <section id="result" class="result" aria-live="polite" hidden></section>
-          <details id="entry-note-details" class="add-note">
-            <summary>Add note</summary>
-            <div class="field">
-              <textarea id="entry-note" rows="2" maxlength="400" aria-label="Note"></textarea>
-            </div>
-          </details>
-          <div class="log-actions">
+          <section class="card dose-card" aria-labelledby="dose-heading">
+            <p id="dose-heading" class="control-label">Insulin Dosage</p>
+            <section id="result" class="result" aria-live="polite" hidden></section>
             <label id="with-basal-wrap" class="check" hidden>
               <input id="with-basal" type="checkbox" />
-              <span id="with-basal-label">With basal</span>
+              <span id="with-basal-label">With Basal</span>
             </label>
-            <button id="save-log" type="button" hidden>Save to log</button>
-          </div>
-          <p id="save-note" class="save-note" aria-live="polite"></p>
+          </section>
+
+          <section id="target-card" class="card" aria-labelledby="target-heading" hidden>
+            <p id="target-heading" class="control-label">Calculated target</p>
+            <div id="target-detail" class="target-detail"></div>
+          </section>
+
+          <section class="card">
+            <details id="entry-note-details" class="add-note">
+              <summary>Add note</summary>
+              <div class="field">
+                <textarea id="entry-note" rows="2" maxlength="400" aria-label="Note"></textarea>
+              </div>
+            </details>
+          </section>
         </form>
 
       </main>
 
-      <details id="ratios" class="card island">
-        <summary>Configure your dosage ratios</summary>
+      <section class="log-save">
+        <div class="log-actions">
+          <button id="save-log" type="button">Save to log</button>
+        </div>
+        <p id="save-note" class="save-note" aria-live="polite"></p>
+      </section>
+
+      <dialog id="settings" aria-labelledby="settings-title">
+        <div class="log-panel settings-panel">
+        <div class="panel-actions">
+          <button id="settings-close" type="button" aria-label="Close">×</button>
+        </div>
+        <div class="about-head">
+          <h2 id="settings-title">Set your routine</h2>
+        </div>
+        <div class="log-body">
         <div class="settings-grid">
-          <div>
+          <div class="card settings-group">
             <p id="unit-setting-label" class="control-label">Glucose unit</p>
             <div class="units" role="radiogroup" aria-labelledby="unit-setting-label">
               <label><input type="radio" name="glucose-unit" value="mmol" checked /> mmol/L</label>
               <label><input type="radio" name="glucose-unit" value="mgdl" /> mg/dL</label>
             </div>
           </div>
-          <div>
-            <p id="target-label" class="control-label">Target while dosing</p>
+          <div class="card settings-group">
+            <p id="target-label" class="control-label">Target While Dosing Bolus</p>
             <div class="split" role="group" aria-labelledby="target-label">
               <div class="step-pill">
               <button id="target-whole-down" type="button" aria-label="Lower the target">−</button>
               <button id="target-whole-up" type="button" aria-label="Raise the target">+</button>
               </div>
               <div class="split-value">
-                <input id="target-whole" inputmode="numeric" autocomplete="off" value="6" aria-label="Target whole number" />
+                <input id="target-whole" inputmode="numeric" autocomplete="off" value="6" placeholder="0" aria-label="Target whole number" />
                 <span id="target-point" class="point" aria-hidden="true">.</span>
-                <input id="target-decimal" class="tenth" inputmode="numeric" maxlength="1" autocomplete="off" value="0" aria-label="Target decimal" />
+                <input id="target-decimal" class="tenth" inputmode="numeric" maxlength="1" autocomplete="off" value="0" placeholder="0" aria-label="Target decimal" />
               </div>
               <div class="step-pill tenth">
               <button id="target-decimal-down" class="tenth" type="button" aria-label="Lower the target decimal">−</button>
@@ -143,17 +195,18 @@
             </div>
             <p class="hint">Corrections and meal doses aim for this number. It stays inside the range. With no food, a reading already inside the range needs no correction.</p>
           </div>
+          <div class="card settings-group">
           <div>
-            <p id="range-low-label" class="control-label">Low end of range</p>
+            <p id="range-low-label" class="control-label">Low End of Target Range</p>
             <div class="split" role="group" aria-labelledby="range-low-label">
               <div class="step-pill">
               <button id="range-low-whole-down" type="button" aria-label="Lower the low end of the range">−</button>
               <button id="range-low-whole-up" type="button" aria-label="Raise the low end of the range">+</button>
               </div>
               <div class="split-value">
-                <input id="range-low-whole" inputmode="numeric" autocomplete="off" value="4" aria-label="Low end whole number" />
+                <input id="range-low-whole" inputmode="numeric" autocomplete="off" value="4" placeholder="0" aria-label="Low end whole number" />
                 <span id="range-low-point" class="point" aria-hidden="true">.</span>
-                <input id="range-low-decimal" class="tenth" inputmode="numeric" maxlength="1" autocomplete="off" value="0" aria-label="Low end decimal" />
+                <input id="range-low-decimal" class="tenth" inputmode="numeric" maxlength="1" autocomplete="off" value="0" placeholder="0" aria-label="Low end decimal" />
               </div>
               <div class="step-pill tenth">
               <button id="range-low-decimal-down" class="tenth" type="button" aria-label="Lower the low end decimal">−</button>
@@ -162,16 +215,16 @@
             </div>
           </div>
           <div>
-            <p id="range-high-label" class="control-label">High end of range</p>
+            <p id="range-high-label" class="control-label">High End of Target Range</p>
             <div class="split" role="group" aria-labelledby="range-high-label">
               <div class="step-pill">
               <button id="range-high-whole-down" type="button" aria-label="Lower the high end of the range">−</button>
               <button id="range-high-whole-up" type="button" aria-label="Raise the high end of the range">+</button>
               </div>
               <div class="split-value">
-                <input id="range-high-whole" inputmode="numeric" autocomplete="off" value="8" aria-label="High end whole number" />
+                <input id="range-high-whole" inputmode="numeric" autocomplete="off" value="8" placeholder="0" aria-label="High end whole number" />
                 <span id="range-high-point" class="point" aria-hidden="true">.</span>
-                <input id="range-high-decimal" class="tenth" inputmode="numeric" maxlength="1" autocomplete="off" value="0" aria-label="High end decimal" />
+                <input id="range-high-decimal" class="tenth" inputmode="numeric" maxlength="1" autocomplete="off" value="0" placeholder="0" aria-label="High end decimal" />
               </div>
               <div class="step-pill tenth">
               <button id="range-high-decimal-down" class="tenth" type="button" aria-label="Lower the high end decimal">−</button>
@@ -179,17 +232,19 @@
               </div>
             </div>
           </div>
+          </div>
+          <div class="card settings-group">
           <div>
-            <p id="carb-effect-label" class="control-label">10 g of carbohydrate raises glucose by</p>
+            <p id="carb-effect-label" class="control-label">10g of Carbs raises Glucose by</p>
             <div class="split" role="group" aria-labelledby="carb-effect-label">
               <div class="step-pill">
               <button id="carb-whole-down" type="button" aria-label="Lower how much carbohydrate raises glucose">−</button>
               <button id="carb-whole-up" type="button" aria-label="Raise how much carbohydrate raises glucose">+</button>
               </div>
               <div class="split-value">
-                <input id="carb-whole" inputmode="numeric" autocomplete="off" value="3" aria-label="Carbohydrate effect whole number" />
+                <input id="carb-whole" inputmode="numeric" autocomplete="off" value="3" placeholder="0" aria-label="Carbohydrate effect whole number" />
                 <span id="carb-point" class="point" aria-hidden="true">.</span>
-                <input id="carb-decimal" class="tenth" inputmode="numeric" maxlength="1" autocomplete="off" value="0" aria-label="Carbohydrate effect decimal" />
+                <input id="carb-decimal" class="tenth" inputmode="numeric" maxlength="1" autocomplete="off" value="0" placeholder="0" aria-label="Carbohydrate effect decimal" />
               </div>
               <div class="step-pill tenth">
               <button id="carb-decimal-down" class="tenth" type="button" aria-label="Lower the carbohydrate effect decimal">−</button>
@@ -198,16 +253,16 @@
             </div>
           </div>
           <div>
-            <p id="insulin-effect-label" class="control-label">1 unit of insulin lowers glucose by</p>
+            <p id="insulin-effect-label" class="control-label">1 unit of Insulin lowers Glucose by</p>
             <div class="split" role="group" aria-labelledby="insulin-effect-label">
               <div class="step-pill">
               <button id="insulin-whole-down" type="button" aria-label="Lower how much insulin lowers glucose">−</button>
               <button id="insulin-whole-up" type="button" aria-label="Raise how much insulin lowers glucose">+</button>
               </div>
               <div class="split-value">
-                <input id="insulin-whole" inputmode="numeric" autocomplete="off" value="3" aria-label="Insulin effect whole number" />
+                <input id="insulin-whole" inputmode="numeric" autocomplete="off" value="3" placeholder="0" aria-label="Insulin effect whole number" />
                 <span id="insulin-point" class="point" aria-hidden="true">.</span>
-                <input id="insulin-decimal" class="tenth" inputmode="numeric" maxlength="1" autocomplete="off" value="0" aria-label="Insulin effect decimal" />
+                <input id="insulin-decimal" class="tenth" inputmode="numeric" maxlength="1" autocomplete="off" value="0" placeholder="0" aria-label="Insulin effect decimal" />
               </div>
               <div class="step-pill tenth">
               <button id="insulin-decimal-down" class="tenth" type="button" aria-label="Lower the insulin effect decimal">−</button>
@@ -215,45 +270,48 @@
               </div>
             </div>
           </div>
-          <div>
-            <label for="insulin-step">Insulin increment</label>
+          </div>
+          <div class="card settings-group">
+            <label for="insulin-step">Bolus Dosage Increment</label>
             <div class="field">
               <select id="insulin-step">
-                <option value="0.1" selected>0.1 unit</option>
-                <option value="0.5">0.5 unit</option>
-                <option value="1">1 unit</option>
+                <option value="0.1" selected>0.1 units</option>
+                <option value="0.5">0.5 units</option>
+                <option value="1">1.0 unit</option>
               </select>
             </div>
             <p class="hint">Match your pen or pump. The suggestion is the increment that finishes closest to the target while staying inside the range.</p>
           </div>
-          <div>
+          <div class="card settings-group">
             <label class="check" for="show-fibre">
               <input id="show-fibre" type="checkbox" checked />
-              Show fibre under carbohydrate
+              Calculate Net Carbs by subtracting Fibre
             </label>
             <p class="hint">Fibre is taken off the carbohydrate before the insulin dose.</p>
           </div>
-          <div>
+          <div class="card settings-group">
             <p id="basal-label" class="control-label">Daily Basal Dosages</p>
             <div id="basal-list" class="basal-list"></div>
           </div>
           <div class="row settings-actions">
-            <button id="reset-settings" class="secondary" type="button">Reset ratios</button>
+            <button id="reset-settings" class="secondary" type="button">Reset Routine</button>
             <button id="delete-data" class="danger" type="button">Delete all data</button>
           </div>
         </div>
-      </details>
+        </div>
+        </div>
+      </dialog>
 
     </div>
 
     <dialog id="log" aria-labelledby="log-title">
       <div class="about-panel log-panel">
+        <div class="panel-actions">
+          <button id="log-add-open" type="button" aria-label="Add an entry">+</button>
+          <button id="log-close" type="button" aria-label="Close">×</button>
+        </div>
         <div class="about-head">
           <h2 id="log-title">Log</h2>
-          <div class="log-head-actions">
-            <button id="log-add-open" type="button" aria-label="Add an entry">+</button>
-            <button id="log-close" type="button" aria-label="Close">×</button>
-          </div>
         </div>
         <div class="log-nav">
           <button id="log-prev" type="button" aria-label="Previous day">
@@ -278,62 +336,165 @@
           </button>
         </div>
         <div class="log-body">
-        <form id="log-add" class="card log-add" hidden>
-          <div class="log-add-head">
-            <h3>Add an entry</h3>
-            <button id="log-add-close" type="button" aria-label="Close add entry">×</button>
-          </div>
-          <p class="hint">A reading, carbohydrate, and dose for the day shown above.</p>
-          <div class="when-fields">
-            <div>
-              <label for="add-time">Time</label>
-              <div class="field">
-                <input id="add-time" type="time" />
-              </div>
-            </div>
-            <div>
-              <label for="add-glucose">Glucose</label>
-              <div class="field">
-                <input id="add-glucose" type="text" inputmode="decimal" autocomplete="off" aria-label="Glucose" />
-              </div>
-            </div>
-          </div>
-          <div class="when-fields">
-            <div>
-              <label for="add-carbs">Carbohydrate</label>
-              <div class="field">
-                <input id="add-carbs" type="text" inputmode="decimal" autocomplete="off" />
-                <span class="suffix">grams</span>
-              </div>
-            </div>
-            <div>
-              <label for="add-insulin">Insulin</label>
-              <div class="field">
-                <input id="add-insulin" type="text" inputmode="decimal" autocomplete="off" />
-                <span class="suffix">units</span>
-              </div>
-            </div>
-          </div>
-          <label for="add-note">Note</label>
-          <div class="field">
-            <textarea id="add-note" rows="2" maxlength="400" placeholder="Optional"></textarea>
-          </div>
-          <label id="add-with-basal-wrap" class="check" hidden>
-            <input id="add-with-basal" type="checkbox" />
-            <span id="add-with-basal-label">With basal</span>
-          </label>
-          <p id="add-error" class="add-error" aria-live="polite"></p>
-          <button id="log-add-button" type="submit">Save for</button>
-        </form>
         <div id="log-list"></div>
         </div>
       </div>
     </dialog>
 
+    <dialog id="log-add-dialog" aria-labelledby="log-add-title">
+      <form id="log-add" class="log-panel settings-panel">
+        <div class="panel-actions">
+          <button id="log-add-close" type="button" aria-label="Close add entry">×</button>
+        </div>
+        <div class="about-head">
+          <h2 id="log-add-title">Add a log entry</h2>
+        </div>
+        <p id="log-add-date" class="log-add-date"></p>
+        <div class="status-cards">
+          <section class="card">
+            <label for="add-hour">Time</label>
+            <input id="add-time" type="hidden" />
+            <div class="field time-field">
+              <input id="add-hour" type="text" inputmode="numeric" maxlength="2" autocomplete="off" aria-label="Hour" />
+              <span class="time-colon" aria-hidden="true">:</span>
+              <input id="add-minute" type="text" inputmode="numeric" maxlength="2" autocomplete="off" aria-label="Minute" />
+              <div class="meridiem" role="group" aria-label="am or pm">
+                <button type="button" data-meridiem="am" aria-pressed="false">am</button>
+                <button type="button" data-meridiem="pm" aria-pressed="false">pm</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="card">
+            <div class="glucose-head">
+              <label for="add-glucose">Glucose</label>
+              <p id="add-glucose-unit" class="unit-label">mmol/L</p>
+            </div>
+            <div class="split carb-split">
+              <div class="step-pill">
+                <button type="button" data-step-input="add-glucose" data-step-size="big" data-step-dir="-1" aria-label="Lower glucose by a whole number">−</button>
+                <button type="button" data-step-input="add-glucose" data-step-size="big" data-step-dir="1" aria-label="Raise glucose by a whole number">+</button>
+              </div>
+              <div class="split-value">
+                <input id="add-glucose" type="text" inputmode="decimal" autocomplete="off" placeholder="0.0" aria-label="Glucose" />
+                <span class="ghost-decimal" aria-hidden="true" hidden></span>
+              </div>
+              <div class="step-pill">
+                <button type="button" data-step-input="add-glucose" data-step-size="small" data-step-dir="-1" aria-label="Lower glucose by a small step">−</button>
+                <button type="button" data-step-input="add-glucose" data-step-size="small" data-step-dir="1" aria-label="Raise glucose by a small step">+</button>
+              </div>
+            </div>
+          </section>
+
+          <section class="card">
+            <label for="add-carbs">Carbs</label>
+            <div class="split carb-split">
+              <div class="step-pill">
+                <button type="button" data-step-input="add-carbs" data-step-size="big" data-step-dir="-1" aria-label="Lower carbohydrate by 10 grams">−</button>
+                <button type="button" data-step-input="add-carbs" data-step-size="big" data-step-dir="1" aria-label="Raise carbohydrate by 10 grams">+</button>
+              </div>
+              <div class="split-value">
+                <input id="add-carbs" type="text" inputmode="decimal" autocomplete="off" placeholder="0" />
+                <span class="carb-unit">g</span>
+              </div>
+              <div class="step-pill">
+                <button type="button" data-step-input="add-carbs" data-step-size="small" data-step-dir="-1" aria-label="Lower carbohydrate by 1 gram">−</button>
+                <button type="button" data-step-input="add-carbs" data-step-size="small" data-step-dir="1" aria-label="Raise carbohydrate by 1 gram">+</button>
+              </div>
+            </div>
+            <div id="add-fibre-wrap" class="fibre">
+              <label for="add-fibre">Fibre</label>
+              <div class="split carb-split fibre-split">
+                <div class="step-pill">
+                  <button type="button" data-step-input="add-fibre" data-step-size="big" data-step-dir="-1" aria-label="Lower fibre by 10 grams">−</button>
+                  <button type="button" data-step-input="add-fibre" data-step-size="big" data-step-dir="1" aria-label="Raise fibre by 10 grams">+</button>
+                </div>
+                <div class="split-value">
+                  <input id="add-fibre" type="text" inputmode="decimal" autocomplete="off" placeholder="0" />
+                  <span class="carb-unit">g</span>
+                </div>
+                <div class="step-pill">
+                  <button type="button" data-step-input="add-fibre" data-step-size="small" data-step-dir="-1" aria-label="Lower fibre by 1 gram">−</button>
+                  <button type="button" data-step-input="add-fibre" data-step-size="small" data-step-dir="1" aria-label="Raise fibre by 1 gram">+</button>
+                </div>
+              </div>
+            </div>
+            <div id="add-net-carbs" class="net-carbs" hidden><p></p></div>
+          </section>
+
+          <section class="card">
+            <label for="add-insulin">Dosed Bolus Insulin</label>
+            <div class="split carb-split">
+              <div class="step-pill">
+                <button type="button" data-step-input="add-insulin" data-step-size="big" data-step-dir="-1" aria-label="Lower bolus by 1 unit">−</button>
+                <button type="button" data-step-input="add-insulin" data-step-size="big" data-step-dir="1" aria-label="Raise bolus by 1 unit">+</button>
+              </div>
+              <div class="split-value">
+                <input id="add-insulin" type="text" inputmode="decimal" autocomplete="off" aria-label="Bolus units" placeholder="0" />
+                <span class="ghost-decimal" aria-hidden="true" hidden></span>
+                <span id="add-insulin-unit" class="carb-unit">units</span>
+              </div>
+              <div class="step-pill">
+                <button type="button" data-step-input="add-insulin" data-step-size="small" data-step-dir="-1" aria-label="Lower bolus by one increment">−</button>
+                <button type="button" data-step-input="add-insulin" data-step-size="small" data-step-dir="1" aria-label="Raise bolus by one increment">+</button>
+              </div>
+            </div>
+            <label id="add-with-basal-wrap" class="check add-basal" hidden>
+              <input id="add-with-basal" type="checkbox" />
+              <span id="add-with-basal-label">With Basal</span>
+            </label>
+          </section>
+
+          <section class="card">
+            <div class="glucose-head">
+              <label for="add-target">Calculated target</label>
+              <p id="add-target-unit" class="unit-label">mmol/L</p>
+            </div>
+            <div class="split carb-split">
+              <div class="step-pill">
+                <button type="button" data-step-input="add-target" data-step-size="big" data-step-dir="-1" aria-label="Lower target by a whole number">−</button>
+                <button type="button" data-step-input="add-target" data-step-size="big" data-step-dir="1" aria-label="Raise target by a whole number">+</button>
+              </div>
+              <div class="split-value">
+                <input id="add-target" type="text" inputmode="decimal" autocomplete="off" placeholder="0.0" aria-label="Target" />
+                <span class="ghost-decimal" aria-hidden="true" hidden></span>
+              </div>
+              <div class="step-pill">
+                <button type="button" data-step-input="add-target" data-step-size="small" data-step-dir="-1" aria-label="Lower target by a small step">−</button>
+                <button type="button" data-step-input="add-target" data-step-size="small" data-step-dir="1" aria-label="Raise target by a small step">+</button>
+              </div>
+            </div>
+            <div id="add-target-help" class="glucose-source">
+              <p class="glucose-source-copy">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M12 19V6"></path>
+                  <path d="m6.5 11.5 5.5-5.5 5.5 5.5"></path>
+                </svg>
+                <span>The target above is calculated from your Glucose, Carbs and Bolus above. Enter manually if you had a different target.</span>
+              </p>
+            </div>
+          </section>
+
+          <section class="card">
+            <details id="add-note-details" class="add-note">
+              <summary>Add note</summary>
+              <div class="field">
+                <textarea id="add-note" rows="2" maxlength="400" aria-label="Note"></textarea>
+              </div>
+            </details>
+          </section>
+        </div>
+        <div class="log-save">
+          <p id="add-error" class="save-note is-error" aria-live="polite"></p>
+          <button id="log-add-button" type="submit">Save for</button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog id="delete-confirm" aria-labelledby="delete-confirm-title">
       <div class="about-panel">
         <h2 id="delete-confirm-title">Delete all data?</h2>
-        <p>This removes saved ratios and every log entry. It cannot be undone.</p>
+        <p>This removes all log data and resets your routine settings.</p>
         <div class="confirm-actions">
           <button id="delete-cancel" class="secondary" type="button">Cancel</button>
           <button id="delete-confirm-button" class="danger" type="button">Delete all data</button>
@@ -344,19 +505,90 @@
     <dialog id="about" aria-labelledby="about-title">
       <div class="about-panel">
         <div class="about-head">
-          <h2 id="about-title">About</h2>
+          <h2 id="about-title">How it works</h2>
           <button id="about-close" type="button" aria-label="Close">×</button>
         </div>
-        <p>
-          Set your glucose and any carbohydrate you are about to eat.
-          Choose mmol/L or mg/dL. Show fibre under carbohydrate when fibre should be taken off before the dose. Basal amounts are Morning (4am to 10am), Lunch (10am to 4pm), Dinner (4pm to 10pm), and Overnight (10pm to 4am). Changing a basal amount keeps the earlier amount for previous days. Save to log keeps the current time, glucose, carbohydrate, insulin, and an optional note. Check With basal to record the amount for that part of the day. It is not a separate number to type. In the log, Add an entry records a past reading, carbohydrate, insulin, and note for the day you are viewing, and you can remove an entry. With the default ratios, 10 g of carbohydrate raises glucose by 3 mmol/L (54 mg/dL), and 1 unit of insulin lowers it by 3 mmol/L (54 mg/dL).
-        </p>
-        <p>
-          This applies the ratios saved on this device. It does not replace your diabetes care plan.
-          Confirm doses with your clinician, especially when you are ill, exercising, or the result looks unexpected.
-        </p>
+        <p class="help-lead">Three quick steps and you have a suggested bolus dose, worked out from your own routine.</p>
+
+        <ol class="help-steps">
+          <li>
+            <span class="help-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 3c3.6 4.3 6 7.7 6 10.6a6 6 0 0 1-12 0C6 10.7 8.4 7.3 12 3Z"></path><path d="M9.2 14.2a2.9 2.9 0 0 0 2.4 2.6"></path></svg>
+            </span>
+            <div>
+              <h3>Enter your glucose</h3>
+              <p>Type your reading, or tap <b>−</b> and <b>+</b> to nudge it. The left buttons move by whole numbers and the right buttons by small steps.</p>
+            </div>
+          </li>
+          <li>
+            <span class="help-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M12 7.5c-1.6-1.3-5.2-1.6-6.5 1.6-1.4 3.4.9 10.6 3.4 11.1 1.2.2 1.9-.5 3.1-.5s1.9.7 3.1.5c2.5-.5 4.8-7.7 3.4-11.1-1.3-3.2-4.9-2.9-6.5-1.6Z"></path><path d="M12 7.5c0-2 1-3.6 3.2-4.3"></path></svg>
+            </span>
+            <div>
+              <h3>Add your carbs</h3>
+              <p>Enter the carbs you are about to eat. Have fibre to count? Add it underneath and it is taken off for you.</p>
+            </div>
+          </li>
+          <li>
+            <span class="help-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="m18 2 4 4"></path><path d="m17 7 3-3"></path><path d="M19 9 8.7 19.3a2.4 2.4 0 0 1-3.4 0l-.6-.6a2.4 2.4 0 0 1 0-3.4L15 5"></path><path d="m9 11 4 4"></path><path d="m5 19-3 3"></path><path d="m14 4 6 6"></path></svg>
+            </span>
+            <div>
+              <h3>Read your dose</h3>
+              <p><b>Insulin Dosage</b> shows the bolus that brings you closest to your target, rounded to your pen or pump.</p>
+            </div>
+          </li>
+        </ol>
+
+        <h3 class="help-heading">The maths, at a glance</h3>
+        <div class="help-maths">
+          <div class="help-effect is-up">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"></path></svg>
+            <p><b>10 g of carbs</b> raises glucose</p>
+          </div>
+          <div class="help-effect is-down">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"></path></svg>
+            <p><b>1 unit of insulin</b> lowers glucose</p>
+          </div>
+        </div>
+        <p class="help-note">You choose both amounts in <b>Set your routine</b>, along with your target and range.</p>
+
+        <h3 class="help-heading">Basal through the day</h3>
+        <ol class="help-day" aria-label="Basal times of day">
+          <li><b>Morning</b><span>4am – 10am</span></li>
+          <li><b>Lunch</b><span>10am – 4pm</span></li>
+          <li><b>Dinner</b><span>4pm – 10pm</span></li>
+          <li><b>Overnight</b><span>10pm – 4am</span></li>
+        </ol>
+        <p class="help-note">Tick <b>With Basal</b> when you save, and the basal amount for that time of day is logged with your entry.</p>
+
+        <ul class="help-tips">
+          <li>
+            <span class="help-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2.5"></rect><path d="M9 8h6M9 12h6M9 16h3"></path></svg>
+            </span>
+            <p><b>Save to log</b> keeps the time, reading, carbs, dose and a note. Open the log to see your day on a graph, or tap <b>+</b> to add an entry you missed.</p>
+          </li>
+          <li>
+            <span class="help-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2.5"></rect><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"></path></svg>
+            </span>
+            <p>Everything stays on this device. Your routine and log are saved here and nowhere else.</p>
+          </li>
+        </ul>
+
+        <aside class="help-safety" aria-labelledby="help-safety-title">
+          <span class="help-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M12 20.5s-7.5-4.6-7.5-10.4A4.3 4.3 0 0 1 12 7.3a4.3 4.3 0 0 1 7.5 2.8c0 5.8-7.5 10.4-7.5 10.4Z"></path><path d="M8 12.5h2.2l1.3-2.4 1.8 4 1.2-1.6H16"></path></svg>
+          </span>
+          <div>
+            <h3 id="help-safety-title">A helper, alongside your care team</h3>
+            <p>Suggestions come from the routine saved on this device and work alongside your diabetes care plan. Check doses with your care team, and take extra care when you are unwell, exercising, or a number looks surprising.</p>
+          </div>
+        </aside>
       </div>
     </dialog>
+    <div id="toast" class="toast" role="status" aria-live="polite" popover="manual"></div>
     <script type="module" src="/src/main.ts"></script>
     <noscript>This calculator needs JavaScript.</noscript>
   </body>
