@@ -1,4 +1,18 @@
 import { registerSW } from 'virtual:pwa-register'
+import {
+  BASAL_PERIODS,
+  basalForDateTime,
+  isBasalPeriod,
+  minutesOfTime,
+  parseBasals,
+  periodHours,
+  periodLabel,
+  recordBasalAmount,
+  type Basal,
+  type BasalAmount,
+  type BasalDose,
+  type BasalPeriod,
+} from './basal'
 import { calculate, DEFAULT_SETTINGS, type Settings } from './calculator'
 import { dayGraphSvg } from './day-graph'
 import { describeDose } from './format'
@@ -52,6 +66,11 @@ const glucoseSource = document.querySelector<HTMLElement>('#glucose-source')!
 const saveAnywayButton = document.querySelector<HTMLButtonElement>('#save-log-anyway')!
 const resultEl = document.querySelector<HTMLElement>('#result')!
 const saveLogButton = document.querySelector<HTMLButtonElement>('#save-log')!
+const logActions = document.querySelector<HTMLElement>('.log-actions')!
+const withBasalWrap = document.querySelector<HTMLLabelElement>('#with-basal-wrap')!
+const withBasalInput = document.querySelector<HTMLInputElement>('#with-basal')!
+const withBasalLabel = document.querySelector<HTMLElement>('#with-basal-label')!
+const basalList = document.querySelector<HTMLElement>('#basal-list')!
 const saveNote = document.querySelector<HTMLElement>('#save-note')!
 const entryNote = document.querySelector<HTMLTextAreaElement>('#entry-note')!
 const entryNoteDetails = document.querySelector<HTMLDetailsElement>('#entry-note-details')!
@@ -73,6 +92,9 @@ const addGlucose = document.querySelector<HTMLInputElement>('#add-glucose')!
 const addCarbs = document.querySelector<HTMLInputElement>('#add-carbs')!
 const addInsulin = document.querySelector<HTMLInputElement>('#add-insulin')!
 const addNote = document.querySelector<HTMLTextAreaElement>('#add-note')!
+const addWithBasalWrap = document.querySelector<HTMLLabelElement>('#add-with-basal-wrap')!
+const addWithBasal = document.querySelector<HTMLInputElement>('#add-with-basal')!
+const addWithBasalLabel = document.querySelector<HTMLElement>('#add-with-basal-label')!
 const addError = document.querySelector<HTMLElement>('#add-error')!
 const form = document.querySelector<HTMLFormElement>('#dose-form')!
 const installEl = document.querySelector<HTMLElement>('#install')!
@@ -289,13 +311,19 @@ function loadSettings() {
       showFibre = true
       paintUnits()
       paintFibre()
+      paintBasalEditor([])
       applySettings({ ...DEFAULT_SETTINGS })
       saveSettings()
       return
     }
-    const parsed = JSON.parse(saved) as Partial<Settings> & { glucoseUnit?: string; showFibre?: boolean }
+    const parsed = JSON.parse(saved) as Partial<Settings> & {
+      glucoseUnit?: string
+      showFibre?: boolean
+      basals?: unknown
+    }
     glucoseUnit = parsed.glucoseUnit === 'mgdl' ? 'mgdl' : 'mmol'
     showFibre = parsed.showFibre !== false
+    paintBasalEditor(parseBasals(parsed.basals))
     const merged = { ...DEFAULT_SETTINGS, ...parsed }
     if (merged.insulinStep !== 0.1 && merged.insulinStep !== 0.5 && merged.insulinStep !== 1) {
       merged.insulinStep = DEFAULT_SETTINGS.insulinStep
@@ -308,15 +336,129 @@ function loadSettings() {
     showFibre = true
     paintUnits()
     paintFibre()
+    paintBasalEditor([])
     applySettings({ ...DEFAULT_SETTINGS })
     saveSettings()
   }
 }
 
+const basalAmounts = new WeakMap<HTMLElement, BasalAmount[]>()
+
+function readBasalRows(): Basal[] {
+  const basals: Basal[] = []
+  for (const row of basalList.querySelectorAll<HTMLElement>('.basal-row')) {
+    const period = row.dataset.period
+    const amounts = basalAmounts.get(row) ?? []
+    if (!isBasalPeriod(period) || amounts.length === 0) continue
+    basals.push({ period, amounts })
+  }
+  return basals
+}
+
+function basalChoiceLabel(dateKey: string | null, minutes: number | null): string {
+  if (dateKey === null || minutes === null) return 'With basal'
+  const basal = basalForDateTime(readBasalRows(), dateKey, minutes)
+  if (!basal) return 'With basal'
+  const amount = formatInsulin(basal.units, insulinStepFor(basal.units))
+  return `With basal, ${amount}, ${periodLabel(basal.period)}`
+}
+
+function checkedBasal(input: HTMLInputElement, dateKey: string, minutes: number): BasalDose | null {
+  const wrap = input.closest('label')
+  if (!input.checked || !wrap || wrap.hidden) return null
+  return basalForDateTime(readBasalRows(), dateKey, minutes)
+}
+
+function paintAddBasal(configured = readBasalRows()) {
+  const show = configured.length > 0
+  addWithBasalWrap.hidden = !show
+  if (!show) addWithBasal.checked = false
+  const minutes = minutesOfTime(addTime.value)
+  const dateKey = selectedLogKey || todayDateKey()
+  addWithBasalLabel.textContent = basalChoiceLabel(show ? dateKey : null, show ? minutes : null)
+}
+
+function paintBasalChoice() {
+  const configured = readBasalRows()
+  const saveVisible = !saveLogButton.hidden
+  const anywayVisible = !glucoseSource.hidden
+  const show = configured.length > 0 && (saveVisible || anywayVisible)
+  withBasalWrap.hidden = !show
+  if (!show) withBasalInput.checked = false
+  if (saveVisible) logActions.insertBefore(withBasalWrap, saveLogButton)
+  else glucoseSource.insertBefore(withBasalWrap, saveAnywayButton)
+  const now = new Date()
+  const minutes = logMinutesOfDay(now.toISOString(), browserTimeZone())
+  withBasalLabel.textContent = show ? basalChoiceLabel(todayDateKey(browserTimeZone(), now), minutes) : 'With basal'
+  paintAddBasal(configured)
+}
+
+function basalHistoryText(amounts: BasalAmount[]): string {
+  if (amounts.length < 2) return ''
+  return amounts
+    .slice(0, -1)
+    .map((amount, index) => {
+      const next = amounts[index + 1]!
+      const until = formatLocalDateKey(shiftDateKey(next.from, -1))
+      const dose = formatInsulin(amount.units, insulinStepFor(amount.units))
+      return `${dose} until ${until}`
+    })
+    .join('\n')
+}
+
+function paintBasalHistory(row: HTMLElement) {
+  const history = row.querySelector<HTMLElement>('.basal-history')
+  if (!history) return
+  history.textContent = basalHistoryText(basalAmounts.get(row) ?? [])
+}
+
+function commitBasalAmount(row: HTMLElement, clear = false) {
+  const input = row.querySelector<HTMLInputElement>('.basal-units')
+  const raw = input?.value.trim() ?? ''
+  if (clear && raw === '') {
+    basalAmounts.set(row, [])
+    paintBasalHistory(row)
+    return
+  }
+  const units = parseDecimal(raw)
+  if (units === null || units <= 0 || units > 100) return
+  const amounts = recordBasalAmount(basalAmounts.get(row) ?? [], units, todayDateKey())
+  basalAmounts.set(row, amounts)
+  paintBasalHistory(row)
+}
+
+function addBasalRow(period: BasalPeriod, basal?: Basal) {
+  const row = document.createElement('div')
+  row.className = 'basal-row'
+  row.dataset.period = period
+  row.innerHTML = `
+    <p class="basal-period">${periodLabel(period)}</p>
+    <div class="field">
+      <input class="basal-units" type="text" inputmode="decimal" autocomplete="off" aria-label="${periodLabel(period)} basal amount, ${periodHours(period)}" />
+      <span class="basal-hours">${periodHours(period)}</span>
+    </div>
+    <p class="basal-history"></p>
+  `
+  const amounts = basal ? basal.amounts.map((amount) => ({ ...amount })) : []
+  basalAmounts.set(row, amounts)
+  const latest = amounts[amounts.length - 1]
+  row.querySelector<HTMLInputElement>('.basal-units')!.value = latest ? String(latest.units) : ''
+  paintBasalHistory(row)
+  basalList.append(row)
+}
+
+function paintBasalEditor(basals: Basal[]) {
+  basalList.replaceChildren()
+  for (const period of BASAL_PERIODS) addBasalRow(period, basals.find((basal) => basal.period === period))
+}
+
 function saveSettings() {
   const settings = readSettings()
   if (!settingsAreValid(settings)) return
-  localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...settings, glucoseUnit, showFibre }))
+  localStorage.setItem(
+    STORAGE_KEY,
+    JSON.stringify({ ...settings, glucoseUnit, showFibre, basals: readBasalRows() }),
+  )
 }
 
 function readDigits(input: HTMLInputElement, max: number): number {
@@ -569,10 +711,15 @@ function paintLog(entries: LogEntry[]) {
     .map((entry) => {
       const glucose = `${formatGlucose(entry.glucoseMmol, glucoseUnit)} ${unitLabel}`
       const carbs = entry.carbsGrams === null ? '—' : formatCarbs(entry.carbsGrams)
-      const insulin = formatInsulin(entry.insulinUnits, entry.insulinStep)
+      const period = isBasalPeriod(entry.basalPeriod) ? `, ${periodLabel(entry.basalPeriod)}` : ''
+      const basal =
+        entry.basalUnits == null
+          ? ''
+          : `<span class="basal">with ${escapeHtml(formatInsulin(entry.basalUnits, insulinStepFor(entry.basalUnits)))} basal${escapeHtml(period)}</span>`
+      const insulin = `${escapeHtml(formatInsulin(entry.insulinUnits, entry.insulinStep))}${basal}`
       const time = formatLogTime(entry.at, entry.timeZone)
       const note = entry.note ? `<p class="log-entry-note">${escapeHtml(entry.note)}</p>` : ''
-      return `<li class="log-entry"><time datetime="${escapeHtml(entry.at)}">${escapeHtml(time)}</time><span>${escapeHtml(glucose)}</span><span class="carbs">${escapeHtml(carbs)}</span><span class="dose">${escapeHtml(insulin)}</span><button type="button" class="log-remove" data-remove="${escapeHtml(entry.id)}" aria-label="Remove ${escapeHtml(time)}">×</button>${note}</li>`
+      return `<li class="log-entry"><time datetime="${escapeHtml(entry.at)}">${escapeHtml(time)}</time><span>${escapeHtml(glucose)}</span><span class="carbs">${escapeHtml(carbs)}</span><span class="dose">${insulin}</span><button type="button" class="log-remove" data-remove="${escapeHtml(entry.id)}" aria-label="Remove ${escapeHtml(time)}">×</button>${note}</li>`
     })
     .join('')
   const graph = dayEntries.length === 0 ? '' : dayGraphSvg(dayEntries, glucoseUnit)
@@ -593,6 +740,14 @@ function closeOnBackdrop(dialog: HTMLDialogElement) {
 }
 
 function render() {
+  try {
+    renderDose()
+  } finally {
+    paintBasalChoice()
+  }
+}
+
+function renderDose() {
   const settings = readSettings()
   const glucose = readGlucoseMmol()
   const carbs = readCarbs()
@@ -787,6 +942,9 @@ deleteConfirmButton.addEventListener('click', () => {
   showFibre = true
   paintUnits()
   paintFibre()
+  paintBasalEditor([])
+  withBasalInput.checked = false
+  addWithBasal.checked = false
   applySettings({ ...DEFAULT_SETTINGS })
   saveSettings()
   saveLog([])
@@ -854,7 +1012,13 @@ function storeLogEntry(payload: {
   targetMmol: number
   carbsGrams: number
 }) {
-  const entry = createLogEntry({ ...payload, note: entryNote.value })
+  const now = new Date()
+  const zone = browserTimeZone()
+  const basal = checkedBasal(withBasalInput, todayDateKey(zone, now), logMinutesOfDay(now.toISOString(), zone))
+  const entry = createLogEntry(
+    { ...payload, note: entryNote.value, basalUnits: basal?.units ?? null, basalPeriod: basal?.period ?? null },
+    now,
+  )
   const entries = loadLog()
   entries.push(entry)
   saveLog(entries)
@@ -862,6 +1026,7 @@ function storeLogEntry(payload: {
   fibreInput.value = '0'
   entryNote.value = ''
   entryNoteDetails.open = false
+  withBasalInput.checked = false
   doseReady = false
   glucoseFromLog = true
   writeGlucoseFromMmol(entry.targetMmol)
@@ -932,6 +1097,11 @@ logAddForm.addEventListener('submit', (event) => {
     return
   }
   const settings = readSettings()
+  const basal = checkedBasal(
+    addWithBasal,
+    logDateKey(when.at.toISOString(), browserTimeZone()),
+    logMinutesOfDay(when.at.toISOString(), browserTimeZone()),
+  )
   const entry = createLogEntry(
     {
       glucoseMmol: glucose,
@@ -940,6 +1110,8 @@ logAddForm.addEventListener('submit', (event) => {
       targetMmol: settingsAreValid(settings) ? settings.targetMmol : DEFAULT_SETTINGS.targetMmol,
       carbsGrams: carbs,
       note: addNote.value,
+      basalUnits: basal?.units ?? null,
+      basalPeriod: basal?.period ?? null,
     },
     when.at,
   )
@@ -950,9 +1122,11 @@ logAddForm.addEventListener('submit', (event) => {
   addCarbs.value = ''
   addInsulin.value = ''
   addNote.value = ''
+  addWithBasal.checked = false
   addError.textContent = ''
   logAddForm.hidden = true
   logAddOpen.hidden = false
+  paintAddBasal()
   paintLog(loadLog())
 })
 
@@ -999,6 +1173,7 @@ function readAddGlucose(): number | null {
 
 logAddOpen.addEventListener('click', () => {
   if (!addTime.value) addTime.value = currentClock().time
+  paintAddBasal()
   logAddForm.hidden = false
   logAddOpen.hidden = true
   logAddForm.scrollIntoView({ block: 'nearest' })
@@ -1016,12 +1191,14 @@ logOpen.addEventListener('click', () => {
 logPrev.addEventListener('click', () => {
   selectedLogKey = shiftDateKey(selectedLogKey || todayDateKey(), -1)
   paintLog(loadLog())
+  paintAddBasal()
 })
 logNext.addEventListener('click', () => {
   const today = todayDateKey()
   const next = shiftDateKey(selectedLogKey || today, 1)
   selectedLogKey = next > today ? today : next
   paintLog(loadLog())
+  paintAddBasal()
 })
 logCalendar.addEventListener('click', () => {
   try {
@@ -1035,6 +1212,7 @@ logDate.addEventListener('change', () => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(logDate.value)) return
   selectedLogKey = logDate.value > today ? today : logDate.value
   paintLog(loadLog())
+  paintAddBasal()
 })
 logList.addEventListener('click', (event) => {
   const button = (event.target as Element).closest<HTMLButtonElement>('[data-remove]')
@@ -1119,6 +1297,20 @@ installDismiss.addEventListener('click', () => {
 })
 
 showInstall()
+
+function onBasalEdit(event: Event) {
+  const target = event.target
+  if (!(target instanceof HTMLInputElement) || !target.classList.contains('basal-units')) return
+  const row = target.closest<HTMLElement>('.basal-row')
+  if (!row) return
+  commitBasalAmount(row, event.type === 'change')
+  saveSettings()
+  render()
+}
+basalList.addEventListener('input', onBasalEdit)
+basalList.addEventListener('change', onBasalEdit)
+addTime.addEventListener('input', () => paintAddBasal())
+addTime.addEventListener('change', () => paintAddBasal())
 
 const ratios = document.querySelector<HTMLDetailsElement>('#ratios')!
 ratios.open = false

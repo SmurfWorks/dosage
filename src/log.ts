@@ -8,6 +8,8 @@ export type LogEntry = {
   targetMmol: number
   carbsGrams: number | null
   note: string
+  basalUnits: number | null
+  basalPeriod: string | null
 }
 
 export type LogGroup = {
@@ -26,6 +28,8 @@ export function createLogEntry(
     targetMmol: number
     carbsGrams: number
     note: string
+    basalUnits?: number | null
+    basalPeriod?: string | null
   },
   now = new Date(),
   timeZone = browserTimeZone(),
@@ -40,6 +44,8 @@ export function createLogEntry(
     targetMmol: input.targetMmol,
     carbsGrams: input.carbsGrams,
     note: input.note.trim().slice(0, 400),
+    basalUnits: positiveBasal(input.basalUnits),
+    basalPeriod: periodName(input.basalPeriod),
   }
 }
 
@@ -225,7 +231,19 @@ function readLogEntry(value: unknown): LogEntry | null {
     targetMmol: entry.targetMmol,
     carbsGrams,
     note,
+    basalUnits: positiveBasal((value as { basalUnits?: unknown }).basalUnits),
+    basalPeriod: periodName((value as { basalPeriod?: unknown }).basalPeriod),
   }
+}
+
+function periodName(value: unknown): string | null {
+  if (value === 'morning' || value === 'lunch' || value === 'dinner' || value === 'overnight') return value
+  return null
+}
+
+function positiveBasal(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return null
+  return value
 }
 
 function zoneOffset(date: Date, timeZone: string): number {

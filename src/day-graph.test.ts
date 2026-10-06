@@ -13,6 +13,8 @@ function entry(overrides: Partial<LogEntry> = {}): LogEntry {
     targetMmol: 6,
     carbsGrams: 0,
     note: '',
+    basalUnits: null,
+    basalPeriod: null,
     ...overrides,
   }
 }

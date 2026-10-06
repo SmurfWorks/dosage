@@ -3,12 +3,12 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-    <meta name="theme-color" content="#134e4a" />
+    <meta name="theme-color" content="#000000" />
     <meta name="description" content="Personal calculator for carbohydrate and insulin doses." />
     <meta name="robots" content="noindex" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black" />
     <meta name="apple-mobile-web-app-title" content="Insulin" />
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
@@ -17,9 +17,9 @@
   <body>
     <div class="app">
       <header>
-        <p class="eyebrow">Personal calculator</p>
+        <p class="eyebrow">Bolus Insulin calculator</p>
         <div class="title-row">
-          <h1>Insulin dose</h1>
+          <h1>Dosage helper</h1>
           <div class="title-actions">
             <button id="about-open" class="header-icon about" type="button" aria-haspopup="dialog" aria-controls="about" aria-label="About this calculator">
               <svg viewBox="0 0 24 24" aria-hidden="true">
@@ -103,6 +103,10 @@
             </div>
           </details>
           <div class="log-actions">
+            <label id="with-basal-wrap" class="check" hidden>
+              <input id="with-basal" type="checkbox" />
+              <span id="with-basal-label">With basal</span>
+            </label>
             <button id="save-log" type="button" hidden>Save to log</button>
           </div>
           <p id="save-note" class="save-note" aria-live="polite"></p>
@@ -229,6 +233,10 @@
             </label>
             <p class="hint">Fibre is taken off the carbohydrate before the insulin dose.</p>
           </div>
+          <div>
+            <p id="basal-label" class="control-label">Basal dosage collection</p>
+            <div id="basal-list" class="basal-list"></div>
+          </div>
           <div class="row settings-actions">
             <button id="reset-settings" class="secondary" type="button">Reset ratios</button>
             <button id="delete-data" class="danger" type="button">Delete all data</button>
@@ -310,6 +318,10 @@
           <div class="field">
             <textarea id="add-note" rows="2" maxlength="400" placeholder="Optional"></textarea>
           </div>
+          <label id="add-with-basal-wrap" class="check" hidden>
+            <input id="add-with-basal" type="checkbox" />
+            <span id="add-with-basal-label">With basal</span>
+          </label>
           <p id="add-error" class="add-error" aria-live="polite"></p>
           <button id="log-add-button" type="submit">Save for</button>
         </form>
@@ -337,7 +349,7 @@
         </div>
         <p>
           Set your glucose and any carbohydrate you are about to eat.
-          Choose mmol/L or mg/dL. Show fibre under carbohydrate when fibre should be taken off before the dose. Save to log keeps the current time, glucose, carbohydrate, insulin, and an optional note. In the log, Add an entry records a past reading, carbohydrate, insulin, and note for the day you are viewing, and you can remove an entry. With the default ratios, 10 g of carbohydrate raises glucose by 3 mmol/L (54 mg/dL), and 1 unit of insulin lowers it by 3 mmol/L (54 mg/dL).
+          Choose mmol/L or mg/dL. Show fibre under carbohydrate when fibre should be taken off before the dose. Basal amounts are Morning (4am to 10am), Lunch (10am to 4pm), Dinner (4pm to 10pm), and Overnight (10pm to 4am). Changing a basal amount keeps the earlier amount for previous days. Save to log keeps the current time, glucose, carbohydrate, insulin, and an optional note. Check With basal to record the amount for that part of the day. It is not a separate number to type. In the log, Add an entry records a past reading, carbohydrate, insulin, and note for the day you are viewing, and you can remove an entry. With the default ratios, 10 g of carbohydrate raises glucose by 3 mmol/L (54 mg/dL), and 1 unit of insulin lowers it by 3 mmol/L (54 mg/dL).
         </p>
         <p>
           This applies the ratios saved on this device. It does not replace your diabetes care plan.

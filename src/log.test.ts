@@ -26,6 +26,8 @@ function entry(overrides: Partial<LogEntry> = {}): LogEntry {
     targetMmol: 7,
     carbsGrams: 0,
     note: '',
+    basalUnits: null,
+    basalPeriod: null,
     ...overrides,
   }
 }
@@ -103,6 +105,17 @@ describe('carbohydrate on a log entry', () => {
     expect(saved.carbsGrams).toBe(30)
     expect(formatCarbs(30)).toBe('30 g')
     expect(saved.note).toBe('Pizza, then a walk')
+    expect(saved.basalUnits).toBeNull()
+    expect(saved.basalPeriod).toBeNull()
+  })
+
+  it('stores a basal amount with the entry', () => {
+    const saved = createLogEntry(
+      { glucoseMmol: 8, insulinUnits: 1.2, insulinStep: 0.1, targetMmol: 6, carbsGrams: 0, note: '', basalUnits: 10 },
+      new Date('2026-10-05T15:00:00.000Z'),
+      'UTC',
+    )
+    expect(saved.basalUnits).toBe(10)
   })
 
   it('keeps older entries that were saved before carbohydrate was stored', () => {
@@ -129,6 +142,8 @@ describe('carbohydrate on a log entry', () => {
     )
     expect(loadLog()[0]?.carbsGrams).toBeNull()
     expect(loadLog()[0]?.note).toBe('')
+    expect(loadLog()[0]?.basalUnits).toBeNull()
+    expect(loadLog()[0]?.basalPeriod).toBeNull()
     vi.unstubAllGlobals()
   })
 })

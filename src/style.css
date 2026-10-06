@@ -456,6 +456,7 @@ textarea {
 
 .glucose-source {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 12px;
@@ -548,6 +549,58 @@ textarea {
   outline: 2px solid var(--teal);
   outline-offset: 2px;
 }
+
+.check[hidden] { display: none; }
+
+.basal-list {
+  display: grid;
+  gap: 10px;
+}
+
+.basal-list:empty { display: none; }
+
+.basal-row {
+  display: grid;
+  grid-template-columns: 6.5rem minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+}
+
+.basal-period {
+  margin: 0;
+  font-weight: 650;
+}
+
+.basal-row .field { margin-top: 0; }
+
+.basal-row .field input {
+  width: auto;
+  flex: 1;
+  min-width: 0;
+}
+
+.basal-hours {
+  flex: none;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 500;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.basal-history {
+  grid-column: 1 / -1;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+  line-height: 1.4;
+  white-space: pre-line;
+}
+
+.basal-history:empty { display: none; }
+
+#with-basal-wrap,
+#add-with-basal-wrap { flex: none; }
 
 .result {
   margin-top: 16px;
@@ -847,6 +900,14 @@ textarea {
 
 .log-entry .carbs,
 .log-entry .dose { font-weight: 750; }
+
+.log-entry .basal {
+  display: block;
+  margin-top: 2px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 650;
+}
 
 .log-entry-note {
   grid-column: 1 / -1;
