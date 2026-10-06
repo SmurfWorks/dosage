@@ -45,7 +45,10 @@ export function dayGraphSvg(entries: LogEntry[], unit: GlucoseUnit): string {
   const dots = placed
     .map((point) => {
       const reading = `${formatGlucose(point.entry.glucoseMmol, unit)} ${unitLabel}`
-      const carbs = point.entry.carbsGrams === null ? '' : `, ${formatCarbs(point.entry.carbsGrams)}`
+      const carbs =
+        point.entry.carbsGrams == null || point.entry.carbsGrams <= 0
+          ? ''
+          : `, ${formatCarbs(point.entry.carbsGrams)}`
       const note = point.entry.note ? `. ${point.entry.note}` : ''
       const period = isBasalPeriod(point.entry.basalPeriod) ? `, ${periodLabel(point.entry.basalPeriod)}` : ''
       const basal =
