@@ -1,0 +1,150 @@
+import { describe, expect, it, vi } from 'vitest'
+import {
+  createLogEntry,
+  dateInTimeZone,
+  formatCarbs,
+  groupLog,
+  latestTargetMmol,
+  loadLog,
+  logDateKey,
+  logMinutesOfDay,
+  shiftDateKey,
+  todayDateKey,
+  formatDateKey,
+  formatLocalDateKey,
+  type LogEntry,
+} from './log'
+
+function entry(overrides: Partial<LogEntry> = {}): LogEntry {
+  return {
+    id: '1',
+    at: '2026-10-06T06:30:00.000Z',
+    timeZone: 'America/Los_Angeles',
+    glucoseMmol: 12,
+    insulinUnits: 1.5,
+    insulinStep: 0.5,
+    targetMmol: 7,
+    carbsGrams: 0,
+    note: '',
+    ...overrides,
+  }
+}
+
+describe('log dates in the browser timezone', () => {
+  it('keeps a late evening on the local date rather than the UTC date', () => {
+    expect(logDateKey('2026-10-06T06:30:00.000Z', 'America/Los_Angeles')).toBe('2026-10-05')
+    expect(logDateKey('2026-10-06T06:30:00.000Z', 'UTC')).toBe('2026-10-06')
+  })
+
+  it('groups entries by local date, newest day and time first', () => {
+    const groups = groupLog([
+      entry({ id: 'evening', at: '2026-10-06T06:30:00.000Z', timeZone: 'America/Los_Angeles' }),
+      entry({ id: 'morning', at: '2026-10-05T16:00:00.000Z', timeZone: 'America/Los_Angeles' }),
+      entry({ id: 'previous', at: '2026-10-04T20:00:00.000Z', timeZone: 'America/Los_Angeles' }),
+    ])
+    expect(groups.map((group) => group.key)).toEqual(['2026-10-05', '2026-10-04'])
+    expect(groups[0]?.entries.map((item) => item.id)).toEqual(['evening', 'morning'])
+    expect(groups[0]?.label).toMatch(/5/)
+    expect(groups[0]?.label).toMatch(/October/)
+  })
+
+  it('places a local time on the 24-hour axis', () => {
+    expect(logMinutesOfDay('2026-10-06T06:30:00.000Z', 'America/Los_Angeles')).toBe(23 * 60 + 30)
+    expect(logMinutesOfDay('2026-10-05T16:00:00.000Z', 'America/Los_Angeles')).toBe(9 * 60)
+    expect(logMinutesOfDay('2026-10-05T00:00:00.000Z', 'UTC')).toBe(0)
+  })
+
+  it('steps across month and leap-day boundaries', () => {
+    expect(shiftDateKey('2026-10-05', -1)).toBe('2026-10-04')
+    expect(shiftDateKey('2026-03-01', -1)).toBe('2026-02-28')
+    expect(shiftDateKey('2024-03-01', -1)).toBe('2024-02-29')
+  })
+
+  it('names a calendar day without shifting it into another timezone', () => {
+    expect(formatDateKey('2026-10-05')).toMatch(/5/)
+    expect(formatDateKey('2026-10-05')).toMatch(/October/)
+    expect(formatDateKey('2026-10-05')).toMatch(/2026/)
+  })
+
+  it('writes a calendar day in the local date format', () => {
+    const local = new Intl.DateTimeFormat(undefined, { timeZone: 'UTC' }).format(
+      new Date(Date.UTC(2026, 9, 5, 12)),
+    )
+    expect(formatLocalDateKey('2026-10-05')).toBe(local)
+    expect(formatLocalDateKey('2026-10-05')).not.toMatch(/Monday|October/)
+  })
+
+  it('uses the local calendar day for today', () => {
+    expect(todayDateKey('America/Los_Angeles', new Date('2026-10-06T06:30:00.000Z'))).toBe('2026-10-05')
+  })
+})
+
+describe('starting glucose', () => {
+  it('uses the target from the newest log entry', () => {
+    const target = latestTargetMmol([
+      entry({ at: '2026-10-01T12:00:00.000Z', targetMmol: 6 }),
+      entry({ at: '2026-10-05T12:00:00.000Z', targetMmol: 7.5 }),
+    ])
+    expect(target).toBe(7.5)
+  })
+
+  it('has no target when the log is empty', () => {
+    expect(latestTargetMmol([])).toBeNull()
+  })
+})
+
+describe('carbohydrate on a log entry', () => {
+  it('stores the carbohydrate that was entered', () => {
+    const saved = createLogEntry(
+      { glucoseMmol: 8, insulinUnits: 1.2, insulinStep: 0.1, targetMmol: 6, carbsGrams: 30, note: '  Pizza, then a walk  ' },
+      new Date('2026-10-05T19:00:00.000Z'),
+      'UTC',
+    )
+    expect(saved.carbsGrams).toBe(30)
+    expect(formatCarbs(30)).toBe('30 g')
+    expect(saved.note).toBe('Pizza, then a walk')
+  })
+
+  it('keeps older entries that were saved before carbohydrate was stored', () => {
+    const store = new Map<string, string>()
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        store.set(key, value)
+      },
+    })
+    store.set(
+      'insulin-calculator.log.v1',
+      JSON.stringify([
+        {
+          id: 'old',
+          at: '2026-10-05T12:00:00.000Z',
+          timeZone: 'UTC',
+          glucoseMmol: 6,
+          insulinUnits: 1,
+          insulinStep: 0.1,
+          targetMmol: 6,
+        },
+      ]),
+    )
+    expect(loadLog()[0]?.carbsGrams).toBeNull()
+    expect(loadLog()[0]?.note).toBe('')
+    vi.unstubAllGlobals()
+  })
+})
+
+describe('a chosen local date and time', () => {
+  it('keeps the wall clock in that timezone', () => {
+    const utc = dateInTimeZone('2026-10-05', '15:45', 'UTC')
+    expect(utc?.toISOString()).toBe('2026-10-05T15:45:00.000Z')
+
+    const losAngeles = dateInTimeZone('2026-10-05', '21:15', 'America/Los_Angeles')
+    expect(losAngeles).not.toBeNull()
+    expect(logDateKey(losAngeles!.toISOString(), 'America/Los_Angeles')).toBe('2026-10-05')
+    expect(logMinutesOfDay(losAngeles!.toISOString(), 'America/Los_Angeles')).toBe(21 * 60 + 15)
+  })
+
+  it('rejects a time that the clock skips', () => {
+    expect(dateInTimeZone('2026-03-08', '02:30', 'America/Los_Angeles')).toBeNull()
+  })
+})

@@ -1,0 +1,26 @@
+#!/bin/sh
+# Rebuild the GitHub Pages output and include it in this commit.
+set -e
+
+cd "$(git rev-parse --show-toplevel)"
+
+if ! command -v npm >/dev/null 2>&1; then
+  export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+fi
+
+if ! command -v npm >/dev/null 2>&1; then
+  herd_nvm="$HOME/Library/Application Support/Herd/config/nvm/nvm.sh"
+  if [ -s "$herd_nvm" ]; then
+    export NVM_DIR="$HOME/Library/Application Support/Herd/config/nvm"
+    # shellcheck disable=SC1090
+    . "$herd_nvm"
+  fi
+fi
+
+if ! command -v npm >/dev/null 2>&1; then
+  echo "pre-commit: npm is not on PATH, so the site was not rebuilt." >&2
+  exit 1
+fi
+
+npm run build
+git add -A -- docs
