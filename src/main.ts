@@ -716,10 +716,10 @@ function paintLog(entries: LogEntry[]) {
         entry.basalUnits == null
           ? ''
           : `<span class="basal">with ${escapeHtml(formatInsulin(entry.basalUnits, insulinStepFor(entry.basalUnits)))} basal${escapeHtml(period)}</span>`
-      const insulin = `${escapeHtml(formatInsulin(entry.insulinUnits, entry.insulinStep))}${basal}`
+      const insulin = escapeHtml(formatInsulin(entry.insulinUnits, entry.insulinStep))
       const time = formatLogTime(entry.at, entry.timeZone)
       const note = entry.note ? `<p class="log-entry-note">${escapeHtml(entry.note)}</p>` : ''
-      return `<li class="log-entry"><time datetime="${escapeHtml(entry.at)}">${escapeHtml(time)}</time><span>${escapeHtml(glucose)}</span><span class="carbs">${escapeHtml(carbs)}</span><span class="dose">${insulin}</span><button type="button" class="log-remove" data-remove="${escapeHtml(entry.id)}" aria-label="Remove ${escapeHtml(time)}">×</button>${note}</li>`
+      return `<li class="log-entry"><time datetime="${escapeHtml(entry.at)}">${escapeHtml(time)}</time><div class="log-facts"><span class="glucose">${escapeHtml(glucose)}</span><span class="carbs">${escapeHtml(carbs)}</span><span class="dose">${insulin}</span>${basal}</div><button type="button" class="log-remove" data-remove="${escapeHtml(entry.id)}" aria-label="Remove ${escapeHtml(time)}">×</button>${note}</li>`
     })
     .join('')
   const graph = dayEntries.length === 0 ? '' : dayGraphSvg(dayEntries, glucoseUnit)
