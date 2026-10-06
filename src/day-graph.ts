@@ -1,4 +1,4 @@
-import { formatBasalUnits, formatCarbs, hasTarget, latestTargetMmol, logMinutesOfDay, type LogEntry } from './log'
+import { formatBasalUnits, formatCarbs, hasTarget, logMinutesOfDay, type LogEntry } from './log'
 import { formatGlucose, glucoseUnitLabel, type GlucoseUnit } from './units'
 
 const WIDTH = 360
@@ -10,16 +10,45 @@ const BOTTOM = 28
 const PLOT_WIDTH = WIDTH - LEFT - RIGHT
 const PLOT_HEIGHT = HEIGHT - TOP - BOTTOM
 
-export function dayGraphSvg(entries: LogEntry[], unit: GlucoseUnit): string {
+export type GraphNeighbours = { before?: LogEntry; after?: LogEntry }
+export type GraphRange = { low: number; high: number }
+
+export function dayGraphSvg(
+  entries: LogEntry[],
+  unit: GlucoseUnit,
+  neighbours: GraphNeighbours = {},
+  range?: GraphRange,
+): string {
   const points = [...entries].sort((a, b) => Date.parse(a.at) - Date.parse(b.at))
-  const target = latestTargetMmol(points) ?? undefined
-  const bounds = axisBounds(points.map((entry) => entry.glucoseMmol), target, unit)
+  const first = points[0]
+  const last = points[points.length - 1]
+  const startEdge =
+    first && neighbours.before
+      ? edgeReading(first, neighbours.before, logMinutesOfDay(first.at, first.timeZone))
+      : undefined
+  const endEdge =
+    last && neighbours.after
+      ? edgeReading(last, neighbours.after, 1440 - logMinutesOfDay(last.at, last.timeZone))
+      : undefined
+  const edges = [startEdge, endEdge].filter((value) => value !== undefined)
+  const bounds = axisBounds([...points.map((entry) => entry.glucoseMmol), ...edges], range, unit)
   const placed = points.map((entry) => ({
     entry,
     x: xFor(logMinutesOfDay(entry.at, entry.timeZone)),
     y: yFor(entry.glucoseMmol, bounds),
   }))
   const unitLabel = glucoseUnitLabel(unit)
+  const neighbourTitle = (entry: LogEntry, day: string) =>
+    `${day} ${formatClock(entry)}, ${formatGlucose(entry.glucoseMmol, unit)} ${unitLabel}`
+  const trend = (x: number, edge: number, point: { x: number; y: number }, title: string) =>
+    `<line class="trend" x1="${x}" y1="${yFor(edge, bounds)}" x2="${point.x}" y2="${point.y}"><title>${escapeXml(title)}</title></line>`
+  const trends =
+    (startEdge === undefined || !neighbours.before
+      ? ''
+      : trend(LEFT, startEdge, placed[0], neighbourTitle(neighbours.before, 'Day before,'))) +
+    (endEdge === undefined || !neighbours.after
+      ? ''
+      : trend(LEFT + PLOT_WIDTH, endEdge, placed[placed.length - 1], neighbourTitle(neighbours.after, 'Day after,')))
   const yLabels = [bounds.max, (bounds.min + bounds.max) / 2, bounds.min]
   const grid = [0, 6, 12, 18, 24]
     .map((hour) => {
@@ -33,10 +62,10 @@ export function dayGraphSvg(entries: LogEntry[], unit: GlucoseUnit): string {
       return `<line class="grid" x1="${LEFT}" y1="${y}" x2="${LEFT + PLOT_WIDTH}" y2="${y}"></line>`
     })
     .join('')
-  const targetLine =
-    target === undefined
+  const rangeBand =
+    range === undefined
       ? ''
-      : `<line class="target" x1="${LEFT}" y1="${yFor(target, bounds)}" x2="${LEFT + PLOT_WIDTH}" y2="${yFor(target, bounds)}"></line>`
+      : `<rect class="range" x="${LEFT}" y="${yFor(range.high, bounds)}" width="${PLOT_WIDTH}" height="${round(yFor(range.low, bounds) - yFor(range.high, bounds))}"><title>${escapeXml(`Target range ${formatGlucose(range.low, unit)} to ${formatGlucose(range.high, unit)} ${unitLabel}`)}</title></rect>`
   const trace =
     placed.length > 1
       ? `<polyline class="trace" points="${placed.map((point) => `${point.x},${point.y}`).join(' ')}"></polyline>`
@@ -67,23 +96,35 @@ export function dayGraphSvg(entries: LogEntry[], unit: GlucoseUnit): string {
       return `<text class="ylabel" x="${LEFT - 8}" y="${y + 4}" text-anchor="end">${escapeXml(formatGlucose(value, unit))}</text>`
     })
     .join('')
+  const trendLabel = [
+    startEdge === undefined ? '' : 'trend from the day before',
+    endEdge === undefined ? '' : 'trend into the day after',
+  ]
+    .filter(Boolean)
+    .join(' and ')
   const label =
     placed.length === 0
       ? '24-hour glucose graph, no readings'
-      : `24-hour glucose graph, ${placed.length} ${placed.length === 1 ? 'reading' : 'readings'}`
+      : `24-hour glucose graph, ${placed.length} ${placed.length === 1 ? 'reading' : 'readings'}${trendLabel ? `, with ${trendLabel}` : ''}`
 
-  return `<svg class="day-graph" viewBox="0 0 ${WIDTH} ${HEIGHT}" role="img" aria-label="${escapeXml(label)}">${grid}${horizontals}${targetLine}${trace}${dots}${xText}${yText}</svg>`
+  return `<svg class="day-graph" viewBox="0 0 ${WIDTH} ${HEIGHT}" role="img" aria-label="${escapeXml(label)}">${rangeBand}${grid}${horizontals}${trends}${trace}${dots}${xText}${yText}</svg>`
+}
+
+function edgeReading(entry: LogEntry, neighbour: LogEntry, minutesToEdge: number): number {
+  const gap = Math.abs(Date.parse(entry.at) - Date.parse(neighbour.at)) / 60000
+  const share = gap > 0 ? Math.min(1, minutesToEdge / gap) : 1
+  return entry.glucoseMmol + (neighbour.glucoseMmol - entry.glucoseMmol) * share
 }
 
 function axisBounds(
   readings: number[],
-  target: number | undefined,
+  range: GraphRange | undefined,
   unit: GlucoseUnit,
 ): { min: number; max: number } {
-  if (readings.length === 0 && target === undefined) {
+  if (readings.length === 0 && range === undefined) {
     return unit === 'mgdl' ? { min: 40 / 18, max: 220 / 18 } : { min: 2, max: 12 }
   }
-  const values = target === undefined ? readings : [...readings, target]
+  const values = range === undefined ? readings : [...readings, range.low, range.high]
   let min = Math.min(...values)
   let max = Math.max(...values)
   if (max - min < 4) {

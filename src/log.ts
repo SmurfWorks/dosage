@@ -10,6 +10,7 @@ export type LogEntry = {
   note: string
   basalUnits: number | null
   basalPeriod: string | null
+  custom?: boolean
 }
 
 export type LogGroup = {
@@ -30,6 +31,7 @@ export function createLogEntry(
     note: string
     basalUnits?: number | null
     basalPeriod?: string | null
+    custom?: boolean
   },
   now = new Date(),
   timeZone = browserTimeZone(),
@@ -46,6 +48,7 @@ export function createLogEntry(
     note: input.note.trim().slice(0, 400),
     basalUnits: positiveBasal(input.basalUnits),
     basalPeriod: periodName(input.basalPeriod),
+    custom: input.custom === true,
   }
 }
 
@@ -84,6 +87,18 @@ export function latestTargetMmol(entries: LogEntry[]): number | null {
     if (!latest || Date.parse(entry.at) > Date.parse(latest.at)) latest = entry
   }
   return latest ? latest.targetMmol : null
+}
+
+export function continuedTarget(entries: LogEntry[], at: string, fallback: number): { mmol: number; source: LogEntry | null } {
+  let latest: LogEntry | null = null
+  const time = Date.parse(at)
+  for (const entry of entries) {
+    if (!hasTarget(entry)) continue
+    const when = Date.parse(entry.at)
+    if (when >= time) continue
+    if (!latest || when > Date.parse(latest.at)) latest = entry
+  }
+  return { mmol: latest ? latest.targetMmol : fallback, source: latest }
 }
 
 export function groupLog(entries: LogEntry[]): LogGroup[] {
@@ -252,6 +267,7 @@ function readLogEntry(value: unknown): LogEntry | null {
     note,
     basalUnits: positiveBasal((value as { basalUnits?: unknown }).basalUnits),
     basalPeriod: periodName((value as { basalPeriod?: unknown }).basalPeriod),
+    custom: (value as { custom?: unknown }).custom === true,
   }
 }
 

@@ -18,11 +18,9 @@ import { dayGraphSvg } from './day-graph'
 import { describeDose } from './format'
 import {
   browserTimeZone,
+  continuedTarget,
   createLogEntry,
   dateInTimeZone,
-  formatBasalUnits,
-  formatBolusUnits,
-  formatCarbohydrates,
   formatDateKey,
   formatLocalDateKey,
   formatInsulin,
@@ -762,6 +760,19 @@ function netCarbs(carbs: number): number {
 let selectedLogKey = ''
 let latestFirst = true
 
+function continuedFromLabel(source: LogEntry | null, current: LogEntry): string {
+  if (!source) return 'from your routine'
+  const time = formatLogTime(source.at, source.timeZone)
+  if (logDateKey(source.at, source.timeZone) === logDateKey(current.at, current.timeZone)) return `from ${time}`
+  const date = new Date(source.at)
+  try {
+    const day = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', timeZone: source.timeZone }).format(date)
+    return `from ${day}, ${time}`
+  } catch {
+    return `from ${time}`
+  }
+}
+
 function paintLog(entries: LogEntry[]) {
   const today = todayDateKey()
   if (!selectedLogKey || selectedLogKey > today) selectedLogKey = today
@@ -776,38 +787,71 @@ function paintLog(entries: LogEntry[]) {
     .filter((entry) => logDateKey(entry.at, entry.timeZone) === selectedLogKey)
     .sort((a, b) => Date.parse(a.at) - Date.parse(b.at) || a.id.localeCompare(b.id))
   if (latestFirst) dayEntries.reverse()
+  const { rangeLow: low, rangeHigh: high } = readSettings()
+  const range = low > 0 && high > low ? { low, high } : undefined
+  const value = (mmol: number) => {
+    const text = escapeHtml(formatGlucose(mmol, glucoseUnit))
+    if (range === undefined) return `<span class="log-value">${text}</span>`
+    const inside = mmol >= range.low && mmol <= range.high
+    return inside
+      ? `<span class="log-value is-in-range" title="Inside target range">${text}</span>`
+      : `<span class="log-value is-out-of-range" title="Outside target range">${text}</span>`
+  }
+  const unit = glucoseUnitLabel(glucoseUnit)
+  const stat = (kind: string, label: string, detail: string, shown: string) =>
+    `<dl class="log-stat is-${kind}"><dt>${escapeHtml(label)}<span>${escapeHtml(detail)}</span></dt><dd>${shown}</dd></dl>`
+  const arrow = (position: 'in' | 'out') =>
+    `<svg class="log-arrow is-${position}" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h15M13 6l6 6-6 6"></path></svg>`
+  const amount = (figure: string) => `<span class="log-value is-neutral">${escapeHtml(figure)}</span>`
   const items = dayEntries
     .map((entry) => {
-      const reading = formatGlucose(entry.glucoseMmol, glucoseUnit)
-      const unit = glucoseUnitLabel(glucoseUnit)
-      const value = (text: string) => `<span class="log-value">${escapeHtml(text)}</span>`
-      const glucose = hasTarget(entry)
-        ? `${value(reading)} → Target: ${value(formatGlucose(entry.targetMmol, glucoseUnit))} ${escapeHtml(unit)}`
-        : `${value(reading)} ${escapeHtml(unit)}`
-      const carbs =
+      const units = (count: number) => (count === 1 ? 'unit' : 'units')
+      const inputs = [
         entry.carbsGrams == null || entry.carbsGrams <= 0
           ? ''
-          : `<span class="carbs">${escapeHtml(formatCarbohydrates(entry.carbsGrams))}</span>`
-      const basal =
-        entry.basalUnits == null || entry.basalUnits <= 0
-          ? ''
-          : `<span class="basal">${escapeHtml(formatBasalUnits(entry.basalUnits))}</span>`
-      const bolus =
+          : stat('carbs', 'Carbs', 'grams', amount(Number(entry.carbsGrams.toFixed(2)).toString())),
         entry.insulinUnits <= 0
           ? ''
-          : `<span class="dose">${escapeHtml(formatBolusUnits(entry.insulinUnits, entry.insulinStep))}</span>`
-      const doses = bolus || basal ? `<div class="log-doses">${bolus}${basal}</div>` : ''
+          : stat('bolus', 'Bolus', units(entry.insulinUnits), amount(formatInsulin(entry.insulinUnits, entry.insulinStep).split(' ')[0])),
+        entry.basalUnits == null || entry.basalUnits <= 0
+          ? ''
+          : stat('basal', 'Basal', units(entry.basalUnits), amount(Number(entry.basalUnits.toFixed(2)).toString())),
+      ].join('')
+      const group = `${arrow('in')}<div class="log-inputs">${
+        inputs || '<p class="log-inputs-empty">No Carbs or Insulin dosed at this time</p>'
+      }</div>`
+      const ownTarget = hasTarget(entry)
+      const continued = ownTarget ? null : continuedTarget(entries, entry.at, readSettings().targetMmol)
+      const targetMmol = ownTarget ? entry.targetMmol : continued!.mmol
+      const targetStat = ownTarget
+        ? stat('target', 'Target', unit, value(targetMmol))
+        : `<dl class="log-stat is-target is-continued"><dt>Target<span>${escapeHtml(unit)}</span></dt><dd>${value(targetMmol)}</dd></dl>`
+      const result = `${arrow('out')}${targetStat}`
+      const glucose = stat('glucose', 'Glucose', unit, value(entry.glucoseMmol))
+      const stats = `${glucose}${group}${result}`
       const time = formatLogTime(entry.at, entry.timeZone)
+      const continuedNote = continued
+        ? `<p class="log-continued-note">Target carried forward ${escapeHtml(continuedFromLabel(continued.source, entry))}</p>`
+        : ''
       const note = entry.note ? `<p class="log-entry-note">${escapeHtml(entry.note)}</p>` : ''
-      return `<li class="log-entry"><time datetime="${escapeHtml(entry.at)}">${escapeHtml(time)}</time><div class="log-facts"><div class="log-reading"><span class="glucose">${glucose}</span>${carbs}</div>${doses}</div><button type="button" class="log-remove" data-remove="${escapeHtml(entry.id)}" aria-label="Remove ${escapeHtml(time)}">×</button>${note}</li>`
+      const custom = entry.custom ? '<span class="log-custom">Custom Log Entry</span>' : ''
+      return `<li class="log-entry"><div class="log-entry-head"><time datetime="${escapeHtml(entry.at)}">${escapeHtml(time)}</time><div class="log-entry-actions">${custom}<button type="button" class="log-remove" data-remove="${escapeHtml(entry.id)}" aria-label="Remove ${escapeHtml(time)}">×</button></div></div><div class="log-card"><div class="log-stats">${stats}</div></div>${continuedNote}${note}</li>`
     })
     .join('')
-  const graph = dayEntries.length === 0 ? '' : dayGraphSvg(dayEntries, glucoseUnit)
+  const entriesOn = (key: string) =>
+    entries
+      .filter((entry) => logDateKey(entry.at, entry.timeZone) === key)
+      .sort((a, b) => Date.parse(a.at) - Date.parse(b.at))
+  const neighbours = {
+    before: entriesOn(shiftDateKey(selectedLogKey, -1)).at(-1),
+    after: entriesOn(shiftDateKey(selectedLogKey, 1))[0],
+  }
+  const graph = dayEntries.length === 0 ? '' : dayGraphSvg(dayEntries, glucoseUnit, neighbours, range)
   const empty = dayEntries.length === 0 ? '<p class="log-empty">Nothing saved this day.</p>' : ''
   const orderLabel = latestFirst ? 'Latest first' : 'Earliest first'
-  const orderToggle = `<button type="button" class="log-order" data-order aria-label="${orderLabel}. Swap order">${orderLabel}<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 4v16M4 16l4 4 4-4M16 20V4M12 8l4-4 4 4"></path></svg></button>`
+  const nextLabel = latestFirst ? 'Earliest first' : 'Latest first'
   const list = items
-    ? `<div class="log-entries-head"><h3 class="section-heading">Log entries</h3>${orderToggle}</div><ol class="log-entries ${latestFirst ? 'time-up' : 'time-down'}">${items}</ol>`
+    ? `<div class="log-entries-head"><h3 class="section-heading">Log entries</h3></div><div class="log-timeline ${latestFirst ? 'time-up' : 'time-down'}"><button type="button" class="log-direction" data-order aria-label="${orderLabel}. Show ${nextLabel}"></button><ol class="log-entries">${items}</ol></div>`
     : ''
   logList.innerHTML = `<section class="card log-day-card">${graph}${empty}</section>${list}`
 }
@@ -1196,6 +1240,7 @@ logAddForm.addEventListener('submit', (event) => {
       insulinStep: insulinStepFor(insulin),
       targetMmol: target,
       carbsGrams: netCarbGrams,
+      custom: true,
       note: addNote.value,
       basalUnits: basal?.units ?? null,
       basalPeriod: basal?.period ?? null,

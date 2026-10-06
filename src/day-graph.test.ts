@@ -72,6 +72,45 @@ describe('24-hour log graph', () => {
     for (const label of labels) expect(Number(label[1])).toBeLessThan(plotLeft)
   })
 
+  it('draws trend lines from the day before and into the day after', () => {
+    const svg = dayGraphSvg(
+      [
+        entry({ id: 'first', at: '2026-10-05T06:00:00.000Z', glucoseMmol: 6 }),
+        entry({ id: 'last', at: '2026-10-05T18:00:00.000Z', glucoseMmol: 8 }),
+      ],
+      'mmol',
+      {
+        before: entry({ id: 'before', at: '2026-10-04T18:00:00.000Z', glucoseMmol: 10 }),
+        after: entry({ id: 'after', at: '2026-10-06T06:00:00.000Z', glucoseMmol: 4 }),
+      },
+    )
+    const trends = [...svg.matchAll(/<line class="trend" x1="([\d.]+)" y1="([\d.]+)" x2="([\d.]+)" y2="([\d.]+)"/g)]
+    expect(trends.length).toBe(2)
+    const [start, end] = trends.map((match) => match.slice(1).map(Number))
+    expect(start[0]).toBe(42)
+    expect(start[2]).toBe(point(svg, 0).x)
+    expect(start[1]).toBeLessThan(point(svg, 0).y)
+    expect(end[0]).toBe(348)
+    expect(end[2]).toBe(point(svg, 1).x)
+    expect(end[1]).toBeGreaterThan(point(svg, 1).y)
+    expect(svg).toContain('Day before,')
+    expect(svg).toContain('with trend from the day before and trend into the day after')
+  })
+
+  it('shades the target range behind the readings', () => {
+    const svg = dayGraphSvg([entry({ glucoseMmol: 10 })], 'mmol', {}, { low: 4, high: 8 })
+    const band = svg.match(/<rect class="range" x="[\d.]+" y="([\d.]+)" width="[\d.]+" height="([\d.]+)"/)
+    expect(band).not.toBeNull()
+    const top = Number(band![1])
+    expect(top).toBeGreaterThan(point(svg, 0).y)
+    expect(svg).toContain('Target range 4.0 to 8.0 mmol/L')
+    expect(svg).not.toContain('class="target"')
+  })
+
+  it('draws no trend lines without neighbouring days', () => {
+    expect(dayGraphSvg([entry()], 'mmol')).not.toContain('class="trend"')
+  })
+
   it('draws the 24-hour axis when the day has no readings', () => {
     const svg = dayGraphSvg([], 'mmol')
     expect(svg).toContain('>12am<')

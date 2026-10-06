@@ -7,6 +7,7 @@ import {
   formatCarbohydrates,
   formatCarbs,
   groupLog,
+  continuedTarget,
   hasTarget,
   latestTargetMmol,
   loadLog,
@@ -94,6 +95,51 @@ describe('log entry target', () => {
   it('has no target with neither', () => {
     expect(hasTarget(entry({ insulinUnits: 0, carbsGrams: 0 }))).toBe(false)
     expect(hasTarget(entry({ insulinUnits: 0, carbsGrams: null, basalUnits: 22 }))).toBe(false)
+  })
+})
+
+describe('continued target', () => {
+  it('uses the latest earlier target, including another day', () => {
+    const target = continuedTarget(
+      [
+        entry({ id: 'older', at: '2026-10-04T20:00:00.000Z', targetMmol: 6, carbsGrams: 20 }),
+        entry({ id: 'later-day', at: '2026-10-05T08:00:00.000Z', targetMmol: 7.2, carbsGrams: 15 }),
+        entry({ id: 'now', at: '2026-10-05T12:00:00.000Z', insulinUnits: 0, carbsGrams: 0 }),
+      ],
+      '2026-10-05T12:00:00.000Z',
+      6.5,
+    )
+    expect(target.mmol).toBe(7.2)
+    expect(target.source?.id).toBe('later-day')
+  })
+
+  it('falls back when nothing earlier has a target', () => {
+    const target = continuedTarget(
+      [entry({ at: '2026-10-05T12:00:00.000Z', insulinUnits: 0, carbsGrams: 0 })],
+      '2026-10-05T12:00:00.000Z',
+      6.5,
+    )
+    expect(target.mmol).toBe(6.5)
+    expect(target.source).toBeNull()
+  })
+})
+
+describe('custom log entry', () => {
+  it('marks a retroactive entry as custom', () => {
+    const saved = createLogEntry(
+      {
+        glucoseMmol: 8,
+        insulinUnits: 1,
+        insulinStep: 0.5,
+        targetMmol: 6,
+        carbsGrams: 20,
+        note: '',
+        custom: true,
+      },
+      new Date('2026-10-05T19:00:00.000Z'),
+      'UTC',
+    )
+    expect(saved.custom).toBe(true)
   })
 })
 
