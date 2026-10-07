@@ -229,6 +229,10 @@ describe('carbohydrate on a log entry', () => {
     )
     expect(loadLog()[0]?.carbsGrams).toBeNull()
     expect(loadLog()[0]?.note).toBe('')
+    const stored = JSON.parse(store.get('insulin-calculator.log.v1')!) as { carbsGrams?: unknown }[]
+    stored[0]!.carbsGrams = null
+    store.set('insulin-calculator.log.v1', JSON.stringify(stored))
+    expect(loadLog()[0]?.carbsGrams).toBeNull()
     expect(loadLog()[0]?.basalUnits).toBeNull()
     expect(loadLog()[0]?.basalPeriod).toBeNull()
     vi.unstubAllGlobals()

@@ -13,8 +13,8 @@
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
     <title>Insulin calculator</title>
-    <script type="module" crossorigin src="./assets/index-DmaQKpeG.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/index-C1yR4239.css">
+    <script type="module" crossorigin src="./assets/index-wb75sgcU.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-DXi82iMY.css">
   <link rel="manifest" href="./manifest.webmanifest"></head>
   <body>
     <div class="app">
@@ -302,6 +302,15 @@
             <p id="basal-label" class="control-label">Daily Basal Dosages</p>
             <div id="basal-list" class="basal-list"></div>
           </div>
+          <div class="card settings-group">
+            <p id="backup-label" class="control-label">Backup</p>
+            <p class="hint">Download your routine and log as a JSON file, or replace them with a file from another device.</p>
+            <div class="row settings-actions backup-actions">
+              <button id="backup-data" type="button">Backup to file</button>
+              <button id="restore-data" class="secondary" type="button">Restore from file</button>
+            </div>
+            <input id="restore-file" class="file-input" type="file" accept="application/json,.json" tabindex="-1" aria-hidden="true" />
+          </div>
           <div class="row settings-actions">
             <button id="reset-settings" class="secondary" type="button">Reset Routine</button>
             <button id="delete-data" class="danger" type="button">Delete all data</button>
@@ -525,6 +534,17 @@
       </form>
     </dialog>
 
+    <dialog id="restore-confirm" aria-labelledby="restore-confirm-title">
+      <div class="about-panel">
+        <h2 id="restore-confirm-title">Restore this backup?</h2>
+        <p id="restore-confirm-text">This replaces the routine and log saved on this device.</p>
+        <div class="confirm-actions">
+          <button id="restore-cancel" class="secondary" type="button">Cancel</button>
+          <button id="restore-confirm-button" type="button">Restore</button>
+        </div>
+      </div>
+    </dialog>
+
     <dialog id="delete-confirm" aria-labelledby="delete-confirm-title">
       <div class="about-panel">
         <h2 id="delete-confirm-title">Delete all data?</h2>
@@ -607,7 +627,7 @@
             <span class="help-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24"><rect x="5" y="10.5" width="14" height="10" rx="2.5"></rect><path d="M8.5 10.5V7.5a3.5 3.5 0 0 1 7 0v3"></path></svg>
             </span>
-            <p>Everything stays on this device. Your routine and log are saved here and nowhere else.</p>
+            <p>Your routine and log stay on this device. From <b>Set your routine</b> you can save a JSON backup, or bring one back.</p>
           </li>
         </ul>
 

@@ -72,6 +72,17 @@ export function loadLog(): LogEntry[] {
   }
 }
 
+export function parseStoredLog(value: unknown): LogEntry[] | null {
+  if (!Array.isArray(value)) return null
+  const entries: LogEntry[] = []
+  for (const item of value) {
+    const entry = readLogEntry(item)
+    if (!entry) return null
+    entries.push(entry)
+  }
+  return entries
+}
+
 export function saveLog(entries: LogEntry[]) {
   localStorage.setItem(LOG_KEY, JSON.stringify(entries))
 }
@@ -247,7 +258,7 @@ function readLogEntry(value: unknown): LogEntry | null {
   }
   const storedCarbs = (value as { carbsGrams?: unknown }).carbsGrams
   const carbsGrams =
-    storedCarbs === undefined
+    storedCarbs === undefined || storedCarbs === null
       ? null
       : typeof storedCarbs === 'number' && Number.isFinite(storedCarbs) && storedCarbs >= 0
         ? storedCarbs

@@ -1,4 +1,5 @@
 import { registerSW } from 'virtual:pwa-register'
+import { backupFilename, createBackup, parseBackup, type Backup, type Routine } from './backup'
 import {
   BASAL_PERIODS,
   basalForDateTime,
@@ -129,6 +130,13 @@ const installButton = document.querySelector<HTMLButtonElement>('#install-button
 const installDismiss = document.querySelector<HTMLButtonElement>('#install-dismiss')!
 const installText = document.querySelector<HTMLElement>('#install-text')!
 const resetButton = document.querySelector<HTMLButtonElement>('#reset-settings')!
+const backupButton = document.querySelector<HTMLButtonElement>('#backup-data')!
+const restoreButton = document.querySelector<HTMLButtonElement>('#restore-data')!
+const restoreFile = document.querySelector<HTMLInputElement>('#restore-file')!
+const restoreConfirm = document.querySelector<HTMLDialogElement>('#restore-confirm')!
+const restoreConfirmText = document.querySelector<HTMLElement>('#restore-confirm-text')!
+const restoreCancel = document.querySelector<HTMLButtonElement>('#restore-cancel')!
+const restoreConfirmButton = document.querySelector<HTMLButtonElement>('#restore-confirm-button')!
 const deleteDataButton = document.querySelector<HTMLButtonElement>('#delete-data')!
 const deleteConfirm = document.querySelector<HTMLDialogElement>('#delete-confirm')!
 const deleteCancel = document.querySelector<HTMLButtonElement>('#delete-cancel')!
@@ -504,6 +512,20 @@ function addBasalRow(period: BasalPeriod, basal?: Basal) {
 function paintBasalEditor(basals: Basal[]) {
   basalList.replaceChildren()
   for (const period of BASAL_PERIODS) addBasalRow(period, basals.find((basal) => basal.period === period))
+}
+
+function readRoutine(): Routine {
+  return { ...readSettings(), glucoseUnit, showFibre, basals: readBasalRows() }
+}
+
+function applyRoutine(routine: Routine) {
+  glucoseUnit = routine.glucoseUnit
+  showFibre = routine.showFibre
+  paintBasalEditor(routine.basals)
+  paintUnits()
+  paintFibre()
+  applySettings(routine)
+  saveSettings()
 }
 
 function saveSettings() {
@@ -1107,6 +1129,72 @@ resetButton.addEventListener('click', () => {
   applySettings({ ...DEFAULT_SETTINGS })
   saveSettings()
   render()
+})
+
+backupButton.addEventListener('click', () => {
+  if (!settingsAreValid(readSettings())) {
+    showToast('Fix your routine before backing up.')
+    return
+  }
+  const routine = readRoutine()
+  const when = new Date()
+  const backup = createBackup(routine, loadLog(), when)
+  const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = backupFilename(when)
+  document.body.append(link)
+  link.click()
+  link.remove()
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+  showToast('Saved a backup file.')
+})
+
+restoreButton.addEventListener('click', () => {
+  restoreFile.value = ''
+  restoreFile.click()
+})
+
+let pendingBackup: Backup | null = null
+
+restoreFile.addEventListener('change', async () => {
+  const file = restoreFile.files?.[0]
+  restoreFile.value = ''
+  if (!file) return
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(await file.text())
+  } catch {
+    showToast('That file is not a Dosage backup.')
+    return
+  }
+  const result = parseBackup(parsed)
+  if (!result.ok) {
+    showToast(result.message)
+    return
+  }
+  pendingBackup = result.backup
+  const count = result.backup.log.length
+  const entries = count === 1 ? '1 log entry' : `${count} log entries`
+  restoreConfirmText.textContent = `This replaces the routine and ${entries} saved on this device.`
+  restoreConfirm.showModal()
+})
+
+restoreCancel.addEventListener('click', () => restoreConfirm.close())
+closeOnBackdrop(restoreConfirm)
+restoreConfirm.addEventListener('close', () => {
+  pendingBackup = null
+})
+restoreConfirmButton.addEventListener('click', () => {
+  const backup = pendingBackup
+  restoreConfirm.close()
+  if (!backup) return
+  applyRoutine(backup.routine)
+  saveLog(backup.log)
+  render()
+  if (logDialog.open) paintLog(backup.log)
+  showToast('Restored your routine and log.')
 })
 
 deleteDataButton.addEventListener('click', () => deleteConfirm.showModal())
