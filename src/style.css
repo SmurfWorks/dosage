@@ -476,6 +476,58 @@ textarea {
 
 .add-note .field { margin-top: 0; }
 
+.note-field { align-items: stretch; }
+
+.note-field textarea { flex: 1; min-width: 0; }
+
+.note-field textarea::placeholder {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.note-done { display: none; }
+
+@media (max-width: 520px), (hover: none) and (pointer: coarse) {
+  body:has(.note-field:focus-within) { overflow: hidden; }
+
+  .note-field:focus-within {
+    position: fixed;
+    top: var(--vv-top, 0px);
+    left: var(--vv-left, 0px);
+    z-index: 50;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    width: var(--vv-width, 100%);
+    height: var(--vv-height, 100dvh);
+    margin: 0;
+    padding:
+      max(18px, env(safe-area-inset-top))
+      max(18px, env(safe-area-inset-right))
+      max(18px, env(safe-area-inset-bottom))
+      max(18px, env(safe-area-inset-left));
+    border: 0;
+    border-radius: 0;
+    background: var(--bg);
+    box-shadow: none;
+  }
+
+  .note-field:focus-within textarea {
+    flex: 1;
+    min-height: 0;
+    resize: none;
+    padding: 8px 4px;
+    font-size: 1.15rem;
+  }
+
+  .note-field:focus-within .note-done {
+    display: block;
+    flex: none;
+    width: 100%;
+    box-shadow: 0 12px 30px rgba(26, 36, 33, 0.28);
+  }
+}
+
 .suffix {
   flex: none;
   padding: 10px 12px;

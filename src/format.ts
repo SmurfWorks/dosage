@@ -22,11 +22,18 @@ function units(value: number, step: number): string {
 
 export function describeDose(
   calc: Calculation,
-  input: { glucoseMmol: number; carbsGrams: number; settings: Settings; glucoseUnit?: GlucoseUnit },
+  input: {
+    glucoseMmol: number
+    carbsGrams: number
+    settings: Settings
+    glucoseUnit?: GlucoseUnit
+    includeInsulin?: boolean
+  },
 ): DoseCopy {
   const { glucoseMmol, carbsGrams, settings } = input
   const { fibreGrams, netCarbGrams } = calc
   const glucoseUnit = input.glucoseUnit ?? 'mmol'
+  const includeInsulin = input.includeInsulin !== false
   const unitName = glucoseUnitLabel(glucoseUnit)
   const shown = (value: number) => formatGlucose(value, glucoseUnit)
   const { mmolRisePer10g, insulinStep } = settings
@@ -65,7 +72,11 @@ export function describeDose(
     )
   }
 
-  if (calc.action === 'insulin' && Math.abs(calc.exactInsulinUnits - calc.insulinUnits) > 0.001) {
+  if (
+    includeInsulin &&
+    calc.action === 'insulin' &&
+    Math.abs(calc.exactInsulinUnits - calc.insulinUnits) > 0.001
+  ) {
     working.push(
       `Exact insulin is ${calc.exactInsulinUnits.toFixed(2)} units before the ${trim(insulinStep)} unit increment.`,
     )

@@ -206,4 +206,25 @@ describe('wording', () => {
     expect(copy.figure).toBe('2.0')
     expect(copy.working.some((line) => line.includes('Fibre removed: 30 g − 10 g = 20 g'))).toBe(true)
   })
+
+  it('omits exact insulin from the working when insulin is not included', () => {
+    const result = dose(8.1, 0, { insulinStep: 0.5 })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.value.action).toBe('insulin')
+    expect(Math.abs(result.value.exactInsulinUnits - result.value.insulinUnits)).toBeGreaterThan(0.001)
+    const withInsulin = describeDose(result.value, {
+      glucoseMmol: 8.1,
+      carbsGrams: 0,
+      settings: { ...settings, insulinStep: 0.5 },
+    })
+    expect(withInsulin.working.some((line) => line.startsWith('Exact insulin'))).toBe(true)
+    const withoutInsulin = describeDose(result.value, {
+      glucoseMmol: 8.1,
+      carbsGrams: 0,
+      settings: { ...settings, insulinStep: 0.5 },
+      includeInsulin: false,
+    })
+    expect(withoutInsulin.working.some((line) => line.startsWith('Exact insulin'))).toBe(false)
+  })
 })

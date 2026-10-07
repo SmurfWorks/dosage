@@ -933,14 +933,15 @@ function renderDose() {
     return
   }
 
+  const includeCarbs = includeCarbsInput.checked
+  const includeInsulin = includeInsulinInput.checked
   const copy = describeDose(result.value, {
     glucoseMmol: glucose,
     carbsGrams: carbs,
     settings,
     glucoseUnit,
+    includeInsulin,
   })
-  const includeCarbs = includeCarbsInput.checked
-  const includeInsulin = includeInsulinInput.checked
   const shownTarget = includeInsulin
     ? result.value.projectedMmol
     : result.value.projectedMmol + result.value.insulinFallMmol
@@ -1133,10 +1134,39 @@ deleteConfirmButton.addEventListener('click', () => {
   if (logDialog.open) paintLog([])
 })
 
+function compactNoteEditor() {
+  return window.matchMedia('(max-width: 520px), (hover: none) and (pointer: coarse)').matches
+}
+
+function paintVisualViewport() {
+  const viewport = window.visualViewport
+  if (!viewport) return
+  const root = document.documentElement
+  root.style.setProperty('--vv-top', `${viewport.offsetTop}px`)
+  root.style.setProperty('--vv-left', `${viewport.offsetLeft}px`)
+  root.style.setProperty('--vv-width', `${viewport.width}px`)
+  root.style.setProperty('--vv-height', `${viewport.height}px`)
+}
+
+paintVisualViewport()
+window.visualViewport?.addEventListener('resize', paintVisualViewport)
+window.visualViewport?.addEventListener('scroll', paintVisualViewport)
+
+function bindNoteEditor(note: HTMLTextAreaElement) {
+  const field = note.closest('.note-field')
+  const done = field?.querySelector<HTMLButtonElement>('.note-done')
+  if (!field || !done) return
+  done.addEventListener('pointerdown', (event) => {
+    event.preventDefault()
+    note.blur()
+  })
+}
+
 function revealNote(details: HTMLDetailsElement, note: HTMLTextAreaElement) {
   if (!details.open) return
   requestAnimationFrame(() => {
     note.focus({ preventScroll: true })
+    if (compactNoteEditor()) return
     const card = details.closest<HTMLElement>('.card') ?? details
     const smooth = !window.matchMedia('(prefers-reduced-motion: reduce)').matches
     card.scrollIntoView({ block: 'end', behavior: smooth ? 'smooth' : 'auto' })
@@ -1144,6 +1174,8 @@ function revealNote(details: HTMLDetailsElement, note: HTMLTextAreaElement) {
 }
 entryNoteDetails.addEventListener('toggle', () => revealNote(entryNoteDetails, entryNote))
 addNoteDetails.addEventListener('toggle', () => revealNote(addNoteDetails, addNote))
+bindNoteEditor(entryNote)
+bindNoteEditor(addNote)
 
 entryNote.addEventListener('input', () => {
   render()
