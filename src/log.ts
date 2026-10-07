@@ -87,8 +87,12 @@ export function saveLog(entries: LogEntry[]) {
   localStorage.setItem(LOG_KEY, JSON.stringify(entries))
 }
 
+export function recordsTarget(carbsGrams: number, insulinUnits: number): boolean {
+  return carbsGrams > 0 || insulinUnits > 0
+}
+
 export function hasTarget(entry: LogEntry): entry is LogEntry & { targetMmol: number } {
-  return entry.targetMmol != null && (entry.insulinUnits > 0 || (entry.carbsGrams ?? 0) > 0)
+  return entry.targetMmol != null && recordsTarget(entry.carbsGrams ?? 0, entry.insulinUnits)
 }
 
 export function latestTargetMmol(entries: LogEntry[]): number | null {

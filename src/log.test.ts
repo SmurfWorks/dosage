@@ -10,6 +10,7 @@ import {
   continuedTarget,
   hasTarget,
   latestTargetMmol,
+  recordsTarget,
   loadLog,
   logDateKey,
   logMinutesOfDay,
@@ -87,6 +88,12 @@ describe('log dates in the browser timezone', () => {
 })
 
 describe('log entry target', () => {
+  it('is calculated only when carbohydrate or bolus is recorded', () => {
+    expect(recordsTarget(0, 0)).toBe(false)
+    expect(recordsTarget(0, 1)).toBe(true)
+    expect(recordsTarget(12, 0)).toBe(true)
+  })
+
   it('has a target with carbohydrate or bolus units', () => {
     expect(hasTarget(entry({ insulinUnits: 0, carbsGrams: 20 }))).toBe(true)
     expect(hasTarget(entry({ insulinUnits: 1.5, carbsGrams: 0 }))).toBe(true)

@@ -15,7 +15,7 @@ import {
   type BasalDose,
   type BasalPeriod,
 } from './basal'
-import { calculate, DEFAULT_SETTINGS, type Settings } from './calculator'
+import { calculate, DEFAULT_SETTINGS, type Calculation, type Settings } from './calculator'
 import { dayGraphSvg } from './day-graph'
 import { describeDose } from './format'
 import {
@@ -31,6 +31,7 @@ import {
   insulinStepFor,
   latestTargetMmol,
   loadLog,
+  recordsTarget,
   logDateKey,
   logMinutesOfDay,
   saveLog,
@@ -72,6 +73,7 @@ const showFibreInput = document.querySelector<HTMLInputElement>('#show-fibre')!
 const glucoseSource = document.querySelector<HTMLElement>('#glucose-source')!
 const resultEl = document.querySelector<HTMLElement>('#result')!
 const targetCard = document.querySelector<HTMLElement>('#target-card')!
+const targetHeading = document.querySelector<HTMLElement>('#target-heading')!
 const targetDetail = document.querySelector<HTMLElement>('#target-detail')!
 const saveLogButton = document.querySelector<HTMLButtonElement>('#save-log')!
 const withBasalWrap = document.querySelector<HTMLLabelElement>('#with-basal-wrap')!
@@ -118,6 +120,12 @@ const includeAddBasal = document.querySelector<HTMLInputElement>('#include-add-b
 const addBasal = document.querySelector<HTMLInputElement>('#add-basal')!
 const addBasalUnit = document.querySelector<HTMLElement>('#add-basal-unit')!
 const addTargetCard = document.querySelector<HTMLElement>('#add-target-card')!
+const addTargetFixed = document.querySelector<HTMLElement>('#add-target-fixed')!
+const addTargetFigure = document.querySelector<HTMLElement>('#add-target-figure')!
+const addTargetFigureUnit = document.querySelector<HTMLElement>('#add-target-figure-unit')!
+const addTargetFixedNote = document.querySelector<HTMLElement>('#add-target-fixed-note')!
+const addTargetEditor = document.querySelector<HTMLElement>('#add-target-editor')!
+const addTargetLabel = document.querySelector<HTMLElement>('#add-target-label')!
 const addTarget = document.querySelector<HTMLInputElement>('#add-target')!
 const addTargetUnit = document.querySelector<HTMLElement>('#add-target-unit')!
 const addTargetHelp = document.querySelector<HTMLElement>('#add-target-help')!
@@ -801,7 +809,7 @@ function netCarbs(carbs: number): number {
 let selectedLogKey = ''
 let latestFirst = true
 
-function continuedFromLabel(source: LogEntry | null, current: LogEntry): string {
+function continuedFromLabel(source: LogEntry | null, current: { at: string; timeZone: string }): string {
   if (!source) return 'from your routine'
   const time = formatLogTime(source.at, source.timeZone)
   if (logDateKey(source.at, source.timeZone) === logDateKey(current.at, current.timeZone)) return `from ${time}`
@@ -909,6 +917,35 @@ function closeOnBackdrop(dialog: HTMLDialogElement) {
   })
 }
 
+function carriedTarget(at: string): { mmol: number; source: LogEntry | null } {
+  const settings = readSettings()
+  const fallback = settingsAreValid(settings) ? settings.targetMmol : DEFAULT_SETTINGS.targetMmol
+  return continuedTarget(loadLog(), at, fallback)
+}
+
+function maintainingSourceCopy(source: LogEntry | null, at: string): string {
+  const from = continuedFromLabel(source, { at, timeZone: browserTimeZone() })
+  return `The target above is carried forward ${from}.`
+}
+
+function statusTarget(result: Calculation, includeCarbs: boolean, includeInsulin: boolean, net: number): {
+  maintaining: boolean
+  mmol: number
+  source: LogEntry | null
+  at: string
+} {
+  const at = new Date().toISOString()
+  const carbs = includeCarbs ? net : 0
+  const insulin = includeInsulin ? result.insulinUnits : 0
+  const maintaining = !recordsTarget(carbs, insulin)
+  if (maintaining) {
+    const carried = carriedTarget(at)
+    return { maintaining, mmol: carried.mmol, source: carried.source, at }
+  }
+  const projected = includeInsulin ? result.projectedMmol : result.projectedMmol + result.insulinFallMmol
+  return { maintaining, mmol: projected, source: null, at }
+}
+
 function render() {
   carbsWrap.classList.toggle('is-skipped', !includeCarbsInput.checked)
   doseCard.classList.toggle('is-skipped', !includeInsulinInput.checked)
@@ -964,10 +1001,8 @@ function renderDose() {
     glucoseUnit,
     includeInsulin,
   })
-  const shownTarget = includeInsulin
-    ? result.value.projectedMmol
-    : result.value.projectedMmol + result.value.insulinFallMmol
-  copy.after = formatGlucose(shownTarget, glucoseUnit)
+  const target = statusTarget(result.value, includeCarbs, includeInsulin, netCarbs(carbs))
+  copy.after = formatGlucose(target.mmol, glucoseUnit)
   const working = copy.working.map((line) => `<li>${escapeHtml(line)}</li>`).join('')
   const noBolus = result.value.insulinUnits <= 0
   const headline = noBolus
@@ -976,15 +1011,27 @@ function renderDose() {
     <p class="figure">${escapeHtml(copy.figure)}<span>${escapeHtml(copy.unit)}</span></p>`
   resultEl.className = `result ${noBolus ? 'no-bolus' : result.value.action}`
   resultEl.innerHTML = headline
+  targetHeading.textContent = target.maintaining ? 'Maintaining target' : 'Calculated target'
+  const explanation = target.maintaining
+    ? `<div class="glucose-source">
+      <p class="glucose-source-copy">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M12 19V6"></path>
+          <path d="m6.5 11.5 5.5-5.5 5.5 5.5"></path>
+        </svg>
+        <span>${escapeHtml(maintainingSourceCopy(target.source, target.at))}</span>
+      </p>
+    </div>`
+    : `<details class="working">
+      <summary>Show the working</summary>
+      <ul>${working}</ul>
+    </details>`
   targetDetail.innerHTML = `
     <div class="result insulin"><p class="figure">${escapeHtml(copy.after)}<span>${escapeHtml(copy.afterUnit)}</span></p></div>
     ${copy.carbCallout ? `<p class="carb-callout">${escapeHtml(copy.carbCallout)}</p>` : ''}
-    <details class="working">
-      <summary>Show the working</summary>
-      <ul>${working}</ul>
-    </details>
+    ${explanation}
   `
-  targetCard.hidden = !includeCarbs && !includeInsulin
+  targetCard.hidden = false
 }
 
 form.addEventListener('submit', (event) => event.preventDefault())
@@ -1066,6 +1113,7 @@ for (const input of unitInputs) {
     writeGlucoseFromMmol(glucose)
     saveSettings()
     render()
+    paintAddTarget()
   })
 }
 
@@ -1345,16 +1393,12 @@ saveLogButton.addEventListener('click', () => {
   }
   const includeCarbs = includeCarbsInput.checked
   const includeInsulin = includeInsulinInput.checked
+  const target = statusTarget(result.value, includeCarbs, includeInsulin, netCarbs(carbs))
   storeLogEntry({
     glucoseMmol: glucose,
     insulinUnits: includeInsulin ? result.value.insulinUnits : 0,
     insulinStep: settings.insulinStep,
-    targetMmol:
-      !includeCarbs && !includeInsulin
-        ? null
-        : includeInsulin
-          ? result.value.projectedMmol
-          : result.value.projectedMmol + result.value.insulinFallMmol,
+    targetMmol: target.maintaining ? null : target.mmol,
     carbsGrams: includeCarbs ? netCarbs(readCarbs()) : 0,
   })
 })
@@ -1394,13 +1438,14 @@ logAddForm.addEventListener('submit', (event) => {
     return
   }
   const netCarbGrams = includeCarbs ? Math.max(0, carbs - fibre) : 0
-  const target =
-    !includeCarbs && !includeInsulin
-      ? null
-      : addTarget.value.trim()
-        ? readGlucoseField(addTarget)
-        : addTargetMmol(glucose, netCarbGrams, insulin)
-  if ((includeCarbs || includeInsulin) && target === null) {
+  const dosedInsulin = includeInsulin ? insulin : 0
+  const maintaining = !recordsTarget(netCarbGrams, dosedInsulin)
+  const target = maintaining
+    ? null
+    : addTarget.value.trim()
+      ? readGlucoseField(addTarget)
+      : addTargetMmol(glucose, netCarbGrams, dosedInsulin)
+  if (!maintaining && target === null) {
     addError.textContent = 'Enter a target above 0.'
     return
   }
@@ -1465,7 +1510,7 @@ function paintAddBasalUnit() {
 function paintAddInclusion() {
   addCarbsWrap.classList.toggle('is-skipped', !includeAddCarbs.checked)
   addInsulinWrap.classList.toggle('is-skipped', !includeAddInsulin.checked)
-  addTargetCard.hidden = !includeAddCarbs.checked && !includeAddInsulin.checked
+  addTargetCard.hidden = false
   addTargetEdited = false
   addTargetHelp.hidden = false
   paintNetCarbs(
@@ -1476,6 +1521,18 @@ function paintAddInclusion() {
   paintAddTarget()
 }
 
+function addFormInstant(): string {
+  const when = readWhen(selectedLogKey || todayDateKey(), addTime.value)
+  return when.ok ? when.at.toISOString() : new Date().toISOString()
+}
+
+function addDoseAmounts(): { net: number; insulin: number } {
+  const carbs = includeAddCarbs.checked ? (readOptionalAmount(addCarbs, 500) ?? 0) : 0
+  const fibre = includeAddCarbs.checked && showFibre ? (readOptionalAmount(addFibre, 500) ?? 0) : 0
+  const insulin = includeAddInsulin.checked ? (readOptionalAmount(addInsulin, 100) ?? 0) : 0
+  return { net: Math.max(0, carbs - fibre), insulin }
+}
+
 function addTargetMmol(glucose: number, netCarbGrams: number, insulin: number): number {
   const settings = readSettings()
   const { mmolRisePer10g, mmolFallPerUnit } = settingsAreValid(settings) ? settings : DEFAULT_SETTINGS
@@ -1483,16 +1540,26 @@ function addTargetMmol(glucose: number, netCarbGrams: number, insulin: number): 
 }
 
 function paintAddTarget() {
-  if (addTargetEdited) return
-  if (!includeAddCarbs.checked && !includeAddInsulin.checked) {
-    addTarget.value = ''
+  const { net, insulin } = addDoseAmounts()
+  const maintaining = !recordsTarget(net, insulin)
+  addTargetFixed.hidden = !maintaining
+  addTargetEditor.hidden = maintaining
+  addTargetCard.setAttribute('aria-labelledby', maintaining ? 'add-target-fixed-heading' : 'add-target-label')
+  if (maintaining) {
+    addTargetEdited = false
+    const at = addFormInstant()
+    const carried = carriedTarget(at)
+    addTargetFigure.textContent = formatGlucose(carried.mmol, glucoseUnit)
+    addTargetFigureUnit.textContent = glucoseUnitLabel(glucoseUnit)
+    addTargetFixedNote.textContent = maintainingSourceCopy(carried.source, at)
     return
   }
+  addTargetLabel.textContent = 'Calculated target'
+  addTarget.setAttribute('aria-label', 'Calculated target')
+  if (addTargetEdited) return
   const glucose = readGlucoseField(addGlucose)
-  const carbs = includeAddCarbs.checked ? (readOptionalAmount(addCarbs, 500) ?? 0) : 0
-  const fibre = includeAddCarbs.checked && showFibre ? (readOptionalAmount(addFibre, 500) ?? 0) : 0
-  const insulin = includeAddInsulin.checked ? (readOptionalAmount(addInsulin, 100) ?? 0) : 0
-  addTarget.value = glucose === null ? '' : formatGlucose(addTargetMmol(glucose, Math.max(0, carbs - fibre), insulin), glucoseUnit)
+  addTarget.value = glucose === null ? '' : formatGlucose(addTargetMmol(glucose, net, insulin), glucoseUnit)
+  sizeStepInput(addTarget)
 }
 
 function stepAddField(input: HTMLInputElement, size: 'big' | 'small', direction: number) {
@@ -1517,7 +1584,7 @@ logAddForm.addEventListener('click', (event) => {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button[data-step-input]')
   if (!button) return
   const input = document.getElementById(button.dataset.stepInput!) as HTMLInputElement | null
-  if (!input) return
+  if (!input || input.closest('[hidden]')) return
   stepAddField(input, button.dataset.stepSize === 'big' ? 'big' : 'small', Number(button.dataset.stepDir))
 })
 
@@ -1779,6 +1846,7 @@ function syncAddTime() {
   addTime.value = valid ? `${String(hours24).padStart(2, '0')}:${String(minute).padStart(2, '0')}` : ''
   addBasalEdited = false
   paintAddBasal()
+  paintAddTarget()
 }
 
 addHour.addEventListener('input', () => {

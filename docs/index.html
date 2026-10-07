@@ -13,7 +13,7 @@
     <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
     <title>Insulin calculator</title>
-    <script type="module" crossorigin src="./assets/index-wb75sgcU.js"></script>
+    <script type="module" crossorigin src="./assets/index-DBsc5Enw.js"></script>
     <link rel="stylesheet" crossorigin href="./assets/index-DXi82iMY.css">
   <link rel="manifest" href="./manifest.webmanifest"></head>
   <body>
@@ -488,32 +488,51 @@
           </section>
 
           <section id="add-target-card" class="card">
-            <div class="glucose-head">
-              <label for="add-target">Calculated target</label>
-              <p id="add-target-unit" class="unit-label">mmol/L</p>
+            <div id="add-target-fixed" hidden>
+              <p id="add-target-fixed-heading" class="control-label">Maintaining target</p>
+              <div class="target-detail">
+                <div class="result insulin">
+                  <p class="figure"><span id="add-target-figure"></span><span id="add-target-figure-unit">mmol/L</span></p>
+                </div>
+              </div>
+              <div class="glucose-source">
+                <p class="glucose-source-copy">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 19V6"></path>
+                    <path d="m6.5 11.5 5.5-5.5 5.5 5.5"></path>
+                  </svg>
+                  <span id="add-target-fixed-note"></span>
+                </p>
+              </div>
             </div>
-            <div class="split carb-split">
-              <div class="step-pill">
-                <button type="button" data-step-input="add-target" data-step-size="big" data-step-dir="-1" aria-label="Lower target by a whole number">−</button>
-                <button type="button" data-step-input="add-target" data-step-size="big" data-step-dir="1" aria-label="Raise target by a whole number">+</button>
+            <div id="add-target-editor">
+              <div class="glucose-head">
+                <label id="add-target-label" for="add-target">Calculated target</label>
+                <p id="add-target-unit" class="unit-label">mmol/L</p>
               </div>
-              <div class="split-value">
-                <input id="add-target" type="text" inputmode="decimal" autocomplete="off" placeholder="0.0" aria-label="Target" />
-                <span class="ghost-decimal" aria-hidden="true" hidden></span>
+              <div class="split carb-split">
+                <div class="step-pill">
+                  <button type="button" data-step-input="add-target" data-step-size="big" data-step-dir="-1" aria-label="Lower target by a whole number">−</button>
+                  <button type="button" data-step-input="add-target" data-step-size="big" data-step-dir="1" aria-label="Raise target by a whole number">+</button>
+                </div>
+                <div class="split-value">
+                  <input id="add-target" type="text" inputmode="decimal" autocomplete="off" placeholder="0.0" aria-label="Calculated target" />
+                  <span class="ghost-decimal" aria-hidden="true" hidden></span>
+                </div>
+                <div class="step-pill">
+                  <button type="button" data-step-input="add-target" data-step-size="small" data-step-dir="-1" aria-label="Lower target by a small step">−</button>
+                  <button type="button" data-step-input="add-target" data-step-size="small" data-step-dir="1" aria-label="Raise target by a small step">+</button>
+                </div>
               </div>
-              <div class="step-pill">
-                <button type="button" data-step-input="add-target" data-step-size="small" data-step-dir="-1" aria-label="Lower target by a small step">−</button>
-                <button type="button" data-step-input="add-target" data-step-size="small" data-step-dir="1" aria-label="Raise target by a small step">+</button>
+              <div id="add-target-help" class="glucose-source">
+                <p class="glucose-source-copy">
+                  <svg viewBox="0 0 24 24" aria-hidden="true">
+                    <path d="M12 19V6"></path>
+                    <path d="m6.5 11.5 5.5-5.5 5.5 5.5"></path>
+                  </svg>
+                  <span id="add-target-help-text">The target above is calculated from your Glucose, Carbs and Bolus above. Enter manually if you had a different target.</span>
+                </p>
               </div>
-            </div>
-            <div id="add-target-help" class="glucose-source">
-              <p class="glucose-source-copy">
-                <svg viewBox="0 0 24 24" aria-hidden="true">
-                  <path d="M12 19V6"></path>
-                  <path d="m6.5 11.5 5.5-5.5 5.5 5.5"></path>
-                </svg>
-                <span>The target above is calculated from your Glucose, Carbs and Bolus above. Enter manually if you had a different target.</span>
-              </p>
             </div>
           </section>
 
