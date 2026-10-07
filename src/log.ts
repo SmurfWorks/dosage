@@ -5,7 +5,7 @@ export type LogEntry = {
   glucoseMmol: number
   insulinUnits: number
   insulinStep: number
-  targetMmol: number
+  targetMmol: number | null
   carbsGrams: number | null
   note: string
   basalUnits: number | null
@@ -26,7 +26,7 @@ export function createLogEntry(
     glucoseMmol: number
     insulinUnits: number
     insulinStep: number
-    targetMmol: number
+    targetMmol: number | null
     carbsGrams: number
     note: string
     basalUnits?: number | null
@@ -76,12 +76,12 @@ export function saveLog(entries: LogEntry[]) {
   localStorage.setItem(LOG_KEY, JSON.stringify(entries))
 }
 
-export function hasTarget(entry: LogEntry): boolean {
-  return entry.insulinUnits > 0 || (entry.carbsGrams ?? 0) > 0
+export function hasTarget(entry: LogEntry): entry is LogEntry & { targetMmol: number } {
+  return entry.targetMmol != null && (entry.insulinUnits > 0 || (entry.carbsGrams ?? 0) > 0)
 }
 
 export function latestTargetMmol(entries: LogEntry[]): number | null {
-  let latest: LogEntry | null = null
+  let latest: (LogEntry & { targetMmol: number }) | null = null
   for (const entry of entries) {
     if (!hasTarget(entry)) continue
     if (!latest || Date.parse(entry.at) > Date.parse(latest.at)) latest = entry
@@ -90,7 +90,7 @@ export function latestTargetMmol(entries: LogEntry[]): number | null {
 }
 
 export function continuedTarget(entries: LogEntry[], at: string, fallback: number): { mmol: number; source: LogEntry | null } {
-  let latest: LogEntry | null = null
+  let latest: (LogEntry & { targetMmol: number }) | null = null
   const time = Date.parse(at)
   for (const entry of entries) {
     if (!hasTarget(entry)) continue
@@ -240,8 +240,8 @@ function readLogEntry(value: unknown): LogEntry | null {
     !Number.isFinite(entry.insulinUnits) ||
     typeof entry.insulinStep !== 'number' ||
     !(entry.insulinStep > 0) ||
-    typeof entry.targetMmol !== 'number' ||
-    !Number.isFinite(entry.targetMmol)
+    (entry.targetMmol !== null &&
+      (typeof entry.targetMmol !== 'number' || !Number.isFinite(entry.targetMmol)))
   ) {
     return null
   }

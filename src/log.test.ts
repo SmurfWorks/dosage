@@ -95,6 +95,17 @@ describe('log entry target', () => {
   it('has no target with neither', () => {
     expect(hasTarget(entry({ insulinUnits: 0, carbsGrams: 0 }))).toBe(false)
     expect(hasTarget(entry({ insulinUnits: 0, carbsGrams: null, basalUnits: 22 }))).toBe(false)
+    expect(hasTarget(entry({ targetMmol: null, insulinUnits: 0, carbsGrams: 0 }))).toBe(false)
+  })
+
+  it('stores no calculated target when none was submitted', () => {
+    const saved = createLogEntry(
+      { glucoseMmol: 6, insulinUnits: 0, insulinStep: 0.5, targetMmol: null, carbsGrams: 0, note: '' },
+      new Date('2026-10-06T20:00:00.000Z'),
+      'UTC',
+    )
+    expect(saved.targetMmol).toBeNull()
+    expect(hasTarget(saved)).toBe(false)
   })
 })
 
@@ -220,6 +231,33 @@ describe('carbohydrate on a log entry', () => {
     expect(loadLog()[0]?.note).toBe('')
     expect(loadLog()[0]?.basalUnits).toBeNull()
     expect(loadLog()[0]?.basalPeriod).toBeNull()
+    vi.unstubAllGlobals()
+  })
+
+  it('keeps a reading that was saved without a calculated target', () => {
+    const store = new Map<string, string>()
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => store.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        store.set(key, value)
+      },
+    })
+    store.set(
+      'insulin-calculator.log.v1',
+      JSON.stringify([
+        {
+          id: 'glucose-only',
+          at: '2026-10-06T20:00:00.000Z',
+          timeZone: 'UTC',
+          glucoseMmol: 6,
+          insulinUnits: 0,
+          insulinStep: 0.5,
+          targetMmol: null,
+          carbsGrams: 0,
+        },
+      ]),
+    )
+    expect(loadLog()[0]?.targetMmol).toBeNull()
     vi.unstubAllGlobals()
   })
 })

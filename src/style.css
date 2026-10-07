@@ -733,7 +733,31 @@ input::placeholder {
 
 #dose-form > .card { margin-top: 0; }
 
-.dose-card:not(:has(> .result:not([hidden]), > .check:not([hidden]))) { display: none; }
+.include-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0;
+  cursor: pointer;
+}
+
+.include-check input {
+  width: 1.15rem;
+  height: 1.15rem;
+  margin: 0;
+  accent-color: var(--teal);
+}
+
+.include-check input:focus-visible {
+  outline: 2px solid var(--teal);
+  outline-offset: 2px;
+}
+
+.card.is-skipped > :not(.include-check) {
+  display: none;
+}
+
+.dose-card:not(:has(> .result:not([hidden]), > .check:not([hidden]), > .include-check)) { display: none; }
 
 .dose-card .result { margin-top: 8px; }
 
@@ -883,7 +907,6 @@ input::placeholder {
 .basal-history:empty { display: none; }
 
 .result:not([hidden]) + #with-basal-wrap { margin-top: 14px; }
-#add-with-basal-wrap { flex: none; }
 
 .result {
   margin-top: 16px;
@@ -1444,7 +1467,6 @@ input::placeholder {
 
 .status-cards > .card { margin-top: 0; }
 
-.add-basal { margin-top: 10px; }
 
 .card:has(> .add-note) { scroll-margin-bottom: calc(max(16px, env(safe-area-inset-bottom)) + 76px); }
 
