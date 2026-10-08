@@ -3,13 +3,13 @@
   "hooks": {
     "afterFileEdit": [
       {
-        "command": ".cursor/hooks/mark-rebuild.sh",
+        "command": ".agents/hooks/hook.sh mark cursor",
         "timeout": 10
       }
     ],
     "stop": [
       {
-        "command": ".cursor/hooks/rebuild.sh",
+        "command": ".agents/hooks/hook.sh stop cursor",
         "timeout": 120,
         "loop_limit": 2
       }

@@ -1,0 +1,29 @@
+{
+  "hooks": {
+    "AfterTool": [
+      {
+        "matcher": "write_file|replace",
+        "hooks": [
+          {
+            "type": "command",
+            "name": "mark-rebuild",
+            "command": "sh \"$(git rev-parse --show-toplevel)/.agents/hooks/hook.sh\" mark gemini",
+            "timeout": 10000
+          }
+        ]
+      }
+    ],
+    "AfterAgent": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "name": "rebuild-docs",
+            "command": "sh \"$(git rev-parse --show-toplevel)/.agents/hooks/hook.sh\" stop gemini",
+            "timeout": 120000
+          }
+        ]
+      }
+    ]
+  }
+}
