@@ -1083,6 +1083,10 @@ input::placeholder {
   font-size: clamp(2.8rem, 12vw, 3.6rem);
 }
 
+.log-save .glucose-source {
+  font-weight: 400;
+}
+
 .log-save .result {
   margin-top: 8px;
   padding: 14px 16px 12px;
@@ -1900,59 +1904,16 @@ button.secondary {
   }
 }
 
-/* Home-screen iOS draws the dialog backdrop through the status bar.
-   Pull full-screen modals into that strip and keep it as their top padding. */
+/* The home-screen status bar sits outside the dialog and shows the backdrop.
+   Paint that strip in the modal colour. The dialog box itself stays full screen. */
 @media (display-mode: standalone), (display-mode: fullscreen) {
-  #log,
-  #settings,
-  #log-add-dialog {
-    display: flex;
-    flex-direction: column;
-    box-sizing: border-box;
-    top: calc(env(safe-area-inset-top) * -1);
-    right: 0;
-    bottom: auto;
-    left: 0;
-    width: 100%;
-    height: calc(100% + env(safe-area-inset-top));
-    max-height: none;
-    margin: 0;
-    padding-top: env(safe-area-inset-top);
-    overflow: hidden;
-  }
-
-  #log > .log-panel,
-  #settings > .log-panel {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow: auto;
-    overscroll-behavior: none;
-    padding-top: 18px;
-  }
-
-  #log .panel-actions,
-  #settings .panel-actions,
-  #log-add .panel-actions {
-    top: 18px;
-  }
-}
-
-@media (display-mode: standalone) and (min-width: 521px), (display-mode: fullscreen) and (min-width: 521px) {
-  #log-add {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow: auto;
-    overscroll-behavior: none;
-  }
-}
-
-@media (display-mode: standalone) and (max-width: 520px), (display-mode: fullscreen) and (max-width: 520px) {
-  #log-add {
-    flex: 1 1 auto;
-    min-height: 0;
-  }
-
-  #log-add .about-head {
-    margin-top: 18px;
+  #log::backdrop,
+  #settings::backdrop,
+  #log-add-dialog::backdrop {
+    background-color: rgba(26, 36, 33, 0.46);
+    background-image: linear-gradient(var(--bg), var(--bg));
+    background-repeat: no-repeat;
+    background-position: top center;
+    background-size: 100% env(safe-area-inset-top);
   }
 }
