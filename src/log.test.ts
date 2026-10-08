@@ -18,6 +18,8 @@ import {
   todayDateKey,
   formatDateKey,
   formatLocalDateKey,
+  formatTimeSince,
+  recentBolus,
   type LogEntry,
 } from './log'
 
@@ -286,5 +288,35 @@ describe('a chosen local date and time', () => {
 
   it('rejects a time that the clock skips', () => {
     expect(dateInTimeZone('2026-03-08', '02:30', 'America/Los_Angeles')).toBeNull()
+  })
+})
+
+describe('recent bolus', () => {
+  const now = new Date('2026-10-08T16:00:00.000Z')
+  const at = (minutesAgo: number) => new Date(now.getTime() - minutesAgo * 60_000).toISOString()
+
+  it('finds the newest bolus in the last four hours', () => {
+    const entries = [
+      entry({ id: 'old', at: at(200), insulinUnits: 3 }),
+      entry({ id: 'new', at: at(40), insulinUnits: 4.5 }),
+      entry({ id: 'mid', at: at(90), insulinUnits: 2 }),
+    ]
+    expect(recentBolus(entries, now)?.id).toBe('new')
+  })
+
+  it('ignores entries without a bolus, older than four hours, or in the future', () => {
+    expect(recentBolus([entry({ at: at(30), insulinUnits: 0, basalUnits: 12 })], now)).toBeNull()
+    expect(recentBolus([entry({ at: at(241), insulinUnits: 4 })], now)).toBeNull()
+    expect(recentBolus([entry({ at: at(-30), insulinUnits: 4 })], now)).toBeNull()
+    expect(recentBolus([entry({ at: at(-0.5), insulinUnits: 4 })], now)?.insulinUnits).toBe(4)
+    expect(recentBolus([], now)).toBeNull()
+  })
+
+  it('says how long ago a dose was', () => {
+    expect(formatTimeSince(at(0.5), now)).toBe('just now')
+    expect(formatTimeSince(at(1), now)).toBe('1 minute ago')
+    expect(formatTimeSince(at(40), now)).toBe('40 minutes ago')
+    expect(formatTimeSince(at(60), now)).toBe('1 hour ago')
+    expect(formatTimeSince(at(125), now)).toBe('2 hours 5 minutes ago')
   })
 })

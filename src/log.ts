@@ -212,6 +212,40 @@ export function formatLogDate(at: string, timeZone: string): string {
   })
 }
 
+/** How long a bolus counts as still working when the calculator warns about it. */
+export const RECENT_BOLUS_HOURS = 4
+
+/** The newest logged bolus within the last few hours, which a new suggestion does not account for. */
+export function recentBolus(entries: LogEntry[], now = new Date(), hours = RECENT_BOLUS_HOURS): LogEntry | null {
+  const nowMs = now.getTime()
+  const since = nowMs - hours * 60 * 60 * 1000
+  let newest: LogEntry | null = null
+  let newestMs = -Infinity
+  for (const entry of entries) {
+    if (!(entry.insulinUnits > 0)) continue
+    const at = Date.parse(entry.at)
+    // A minute's grace allows for a clock that runs slightly behind the entry.
+    if (!Number.isFinite(at) || at < since || at > nowMs + 60_000) continue
+    if (at > newestMs) {
+      newest = entry
+      newestMs = at
+    }
+  }
+  return newest
+}
+
+/** "just now", "40 minutes ago", "1 hour ago", "2 hours 5 minutes ago". */
+export function formatTimeSince(at: string, now = new Date()): string {
+  const minutes = Math.max(0, Math.floor((now.getTime() - Date.parse(at)) / 60_000))
+  if (minutes < 1) return 'just now'
+  const hours = Math.floor(minutes / 60)
+  const rest = minutes % 60
+  const hourText = hours === 1 ? '1 hour' : `${hours} hours`
+  const minuteText = rest === 1 ? '1 minute' : `${rest} minutes`
+  if (hours === 0) return `${minuteText} ago`
+  return rest === 0 ? `${hourText} ago` : `${hourText} ${minuteText} ago`
+}
+
 export function formatLogTime(at: string, timeZone: string): string {
   return zonedFormat(at, timeZone, { hour: 'numeric', minute: '2-digit', hour12: true })
 }

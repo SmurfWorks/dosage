@@ -19,6 +19,8 @@ The insulin result stays hidden until you change the glucose, carbohydrate, or f
 - **Inside the range with 0 g, or a meal that already finishes inside the range:** 0 units.
 - **Below the range:** 0 units, plus the grams of carbohydrate that would reach the target.
 
+When it suggests a bolus and you logged one in the last 4 hours, a warning under the dose gives that dose and how long ago it was. The suggestion does not subtract insulin that may still be working.
+
 Change the ratios in **Configure your dosage ratios**. They are stored in local storage on this device.
 
 **Dishes**, beside Carbs in the calculator and in **Add an entry**, keeps the dishes you eat often with their carbohydrate and fibre. It lists your three most-picked dishes; search by name to find others. Tap a dish to fill in both amounts in the form you opened it from. **Add a dish** takes a name and its grams, using the same stepped inputs as the calculator, and shows the calculated carbs once there is fibre. It starts with the amounts already entered, and saving a name you already have updates that dish and keeps its place in the list. Your first dish opens the form straight away. Remove a dish with its ×. Dishes, and how often you pick each, are stored on this device.

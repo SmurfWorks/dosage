@@ -29,11 +29,13 @@ import {
   formatDateKey,
   formatLocalDateKey,
   formatInsulin,
+  formatTimeSince,
   formatLogTime,
   hasTarget,
   insulinStepFor,
   latestTargetMmol,
   loadLog,
+  recentBolus,
   recordsTarget,
   logDateKey,
   logMinutesOfDay,
@@ -982,6 +984,18 @@ function render() {
   }
 }
 
+/** Warns that the suggestion ignores a bolus logged in the last few hours, which may still be working. */
+function recentBolusWarning(): string {
+  const recent = recentBolus(loadLog())
+  if (!recent) return ''
+  const dose = formatInsulin(recent.insulinUnits, recent.insulinStep)
+  const when = `${formatTimeSince(recent.at)}, at ${formatLogTime(recent.at, recent.timeZone)}`
+  return `<p class="recent-bolus" role="note">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8.5"></circle><path d="M12 7.5V12l3 2"></path></svg>
+    <span><strong>You logged ${escapeHtml(dose)} ${escapeHtml(when)}.</strong> This suggestion does not count insulin still working from that dose.</span>
+  </p>`
+}
+
 function renderDose() {
   const settings = readSettings()
   const glucose = readGlucoseMmol()
@@ -1035,7 +1049,7 @@ function renderDose() {
     : `<p class="kicker">${escapeHtml(copy.kicker)}</p>
     <p class="figure">${escapeHtml(copy.figure)}<span>${escapeHtml(copy.unit)}</span></p>`
   resultEl.className = `result ${noBolus ? 'no-bolus' : result.value.action}`
-  resultEl.innerHTML = headline
+  resultEl.innerHTML = headline + (noBolus ? '' : recentBolusWarning())
   targetHeading.textContent = target.maintaining ? 'Maintaining target' : 'Calculated target'
   const explanation = target.maintaining
     ? `<div class="glucose-source">
