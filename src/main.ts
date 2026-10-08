@@ -84,7 +84,7 @@ const saveNote = document.querySelector<HTMLElement>('#save-note')!
 const toast = document.querySelector<HTMLElement>('#toast')!
 const entryNote = document.querySelector<HTMLTextAreaElement>('#entry-note')!
 const entryNoteDetails = document.querySelector<HTMLDetailsElement>('#entry-note-details')!
-const logDialog = document.querySelector<HTMLDialogElement>('#log')!
+const logDialog = document.querySelector<HTMLElement>('#log')!
 const logOpen = document.querySelector<HTMLButtonElement>('#log-open')!
 const logClose = document.querySelector<HTMLButtonElement>('#log-close')!
 const logPrev = document.querySelector<HTMLButtonElement>('#log-prev')!
@@ -95,7 +95,7 @@ const logCalendar = document.querySelector<HTMLButtonElement>('#log-calendar')!
 const logList = document.querySelector<HTMLElement>('#log-list')!
 const logAddOpen = document.querySelector<HTMLButtonElement>('#log-add-open')!
 const logAddClose = document.querySelector<HTMLButtonElement>('#log-add-close')!
-const logAddDialog = document.querySelector<HTMLDialogElement>('#log-add-dialog')!
+const logAddDialog = document.querySelector<HTMLElement>('#log-add-dialog')!
 const logAddForm = document.querySelector<HTMLFormElement>('#log-add')!
 const logAddButton = document.querySelector<HTMLButtonElement>('#log-add-button')!
 const logAddDate = document.querySelector<HTMLElement>('#log-add-date')!
@@ -918,6 +918,119 @@ function closeOnBackdrop(dialog: HTMLDialogElement) {
   })
 }
 
+function pageViews(): HTMLElement[] {
+  return ['#log-add-dialog', '#log', '#settings'].map(
+    (id) => document.querySelector<HTMLElement>(id)!,
+  )
+}
+
+const homeView = document.querySelector<HTMLElement>('#home')!
+const viewEpoch = new WeakMap<HTMLElement, number>()
+const viewReturn = new WeakMap<HTMLElement, HTMLElement>()
+
+function nextViewEpoch(view: HTMLElement): number {
+  const epoch = (viewEpoch.get(view) ?? 0) + 1
+  viewEpoch.set(view, epoch)
+  return epoch
+}
+
+function viewIsOpen(view: HTMLElement): boolean {
+  return view.classList.contains('is-open')
+}
+
+function syncViewLayer() {
+  const covering = pageViews().some((view) => viewIsOpen(view) && !view.classList.contains('is-leaving'))
+  homeView.toggleAttribute('inert', covering)
+  logDialog.toggleAttribute('inert', viewIsOpen(logAddDialog) && !logAddDialog.classList.contains('is-leaving'))
+  logOpen.setAttribute('aria-expanded', String(viewIsOpen(logDialog)))
+  document.querySelector('#settings-open')?.setAttribute('aria-expanded', String(viewIsOpen(settingsView())))
+  paintModalStatusBar()
+}
+
+function viewUnder(view: HTMLElement): HTMLElement {
+  return view === logAddDialog ? logDialog : homeView
+}
+
+function settingsView(): HTMLElement {
+  return document.querySelector<HTMLElement>('#settings')!
+}
+
+function presentView(view: HTMLElement) {
+  if (
+    viewIsOpen(view) &&
+    view.classList.contains('is-active') &&
+    !view.classList.contains('is-leaving') &&
+    !view.classList.contains('is-parked')
+  ) {
+    return
+  }
+  const from = viewUnder(view)
+  const epoch = nextViewEpoch(view)
+  const opener = document.activeElement
+  if (opener instanceof HTMLElement && opener !== view && !view.contains(opener)) viewReturn.set(view, opener)
+  view.classList.remove('is-leaving', 'is-parked', 'is-active')
+  view.hidden = false
+  view.classList.add('is-open')
+  view.scrollTop = 0
+  syncViewLayer()
+  const reveal = () => {
+    if (viewEpoch.get(view) !== epoch) return
+    from.classList.add('is-parked')
+    view.classList.add('is-active')
+    view.focus({ preventScroll: true })
+    paintSaveCover()
+  }
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    reveal()
+    return
+  }
+  requestAnimationFrame(() => {
+    requestAnimationFrame(reveal)
+  })
+}
+
+function dismissView(view: HTMLElement) {
+  if (!viewIsOpen(view) || view.classList.contains('is-leaving')) return
+  const epoch = nextViewEpoch(view)
+  const back = viewUnder(view)
+  const finish = () => {
+    if (viewEpoch.get(view) !== epoch || !viewIsOpen(view)) return
+    view.classList.remove('is-active', 'is-leaving', 'is-open', 'is-parked')
+    view.hidden = true
+    syncViewLayer()
+    requestAnimationFrame(paintSaveCover)
+    const returnFocus = viewReturn.get(view)
+    if (returnFocus?.isConnected) returnFocus.focus()
+  }
+  back.classList.remove('is-parked')
+  if (back !== homeView) back.classList.add('is-active')
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
+    finish()
+    return
+  }
+  view.classList.add('is-leaving')
+  view.classList.remove('is-active')
+  syncViewLayer()
+  const onEnd = (event: TransitionEvent) => {
+    if (event.target !== view || event.propertyName !== 'transform') return
+    view.removeEventListener('transitionend', onEnd)
+    finish()
+  }
+  view.addEventListener('transitionend', onEnd)
+  window.setTimeout(() => {
+    view.removeEventListener('transitionend', onEnd)
+    finish()
+  }, 320)
+}
+
+document.addEventListener('keydown', (event) => {
+  if (event.key !== 'Escape' || document.querySelector('dialog:modal')) return
+  const top = pageViews().find((view) => viewIsOpen(view) && !view.classList.contains('is-leaving'))
+  if (!top) return
+  event.preventDefault()
+  dismissView(top)
+})
+
 function carriedTarget(at: string): { mmol: number; source: LogEntry | null } {
   const settings = readSettings()
   const fallback = settingsAreValid(settings) ? settings.targetMmol : DEFAULT_SETTINGS.targetMmol
@@ -1242,7 +1355,7 @@ restoreConfirmButton.addEventListener('click', () => {
   applyRoutine(backup.routine)
   saveLog(backup.log)
   render()
-  if (logDialog.open) paintLog(backup.log)
+  if (viewIsOpen(logDialog)) paintLog(backup.log)
   showToast('Restored your routine and log.')
 })
 
@@ -1268,7 +1381,7 @@ deleteConfirmButton.addEventListener('click', () => {
   glucoseFromLog = false
   writeGlucoseFromMmol(6)
   render()
-  if (logDialog.open) paintLog([])
+  if (viewIsOpen(logDialog)) paintLog([])
   forgetAboutSeen()
 })
 
@@ -1290,20 +1403,33 @@ paintVisualViewport()
 window.visualViewport?.addEventListener('resize', paintVisualViewport)
 window.visualViewport?.addEventListener('scroll', paintVisualViewport)
 
-function stopInstalledAppleZoom() {
+function inSafari(): boolean {
   const appleNavigator = navigator as Navigator & { standalone?: boolean }
-  if (appleNavigator.standalone !== true) return
-  const viewport = document.querySelector('meta[name="viewport"]')
-  if (viewport instanceof HTMLMetaElement) {
-    viewport.content = 'width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover'
+  if (appleNavigator.standalone === true) return true
+  const ua = navigator.userAgent
+  if (/chrome|chromium|crios|fxios|edg|android/i.test(ua)) return false
+  return /safari/i.test(ua)
+}
+
+function stopSafariPinchZoom() {
+  if (!inSafari()) return
+  document.documentElement.classList.add('safari')
+  const blockGesture = (event: Event) => {
+    if (event.cancelable) event.preventDefault()
   }
-  const blockGesture = (event: Event) => event.preventDefault()
   for (const name of ['gesturestart', 'gesturechange', 'gestureend']) {
     document.addEventListener(name, blockGesture, { passive: false })
   }
+  document.addEventListener(
+    'touchmove',
+    (event) => {
+      if (event.touches.length > 1 && event.cancelable) event.preventDefault()
+    },
+    { passive: false },
+  )
 }
 
-stopInstalledAppleZoom()
+stopSafariPinchZoom()
 
 const saveIslands = document.querySelectorAll<HTMLElement>('.log-save')
 
@@ -1352,10 +1478,9 @@ window.addEventListener('scroll', paintSaveCover, { passive: true })
 document.addEventListener('scroll', paintSaveCover, { capture: true, passive: true })
 window.addEventListener('resize', paintSaveCover)
 logAddDialog.addEventListener('scroll', paintSaveCover, { passive: true })
-logAddDialog.addEventListener('toggle', () => requestAnimationFrame(paintSaveCover))
 const addBody = document.querySelector<HTMLElement>('.log-add-body')
 addBody?.addEventListener('scroll', paintSaveCover, { passive: true })
-new ResizeObserver(paintSaveCover).observe(document.querySelector('.app')!)
+new ResizeObserver(paintSaveCover).observe(homeView)
 new ResizeObserver(paintSaveCover).observe(document.querySelector('#log-add')!)
 if (addBody) new ResizeObserver(paintSaveCover).observe(addBody)
 
@@ -1436,7 +1561,7 @@ function storeLogEntry(payload: {
   selectedLogKey = logDateKey(entry.at, entry.timeZone)
   if (!addTime.value) addTime.value = currentClock().time
   paintLog(loadLog())
-  if (!logDialog.open) logDialog.showModal()
+  if (!viewIsOpen(logDialog)) presentView(logDialog)
   showToast(`Saved log entry for ${formatLogTime(entry.at, entry.timeZone)}`)
 }
 
@@ -1539,7 +1664,7 @@ logAddForm.addEventListener('submit', (event) => {
   entries.push(entry)
   saveLog(entries)
   clearAddForm()
-  logAddDialog.close()
+  dismissView(logAddDialog)
   paintAddBasal()
   paintLog(loadLog())
   showToast(`Saved log entry for ${formatLogTime(entry.at, entry.timeZone)}`)
@@ -1754,16 +1879,16 @@ logAddOpen.addEventListener('click', () => {
   writeAddGlucoseDefault()
   paintAddInclusion()
   sizeStepInputs()
-  logAddDialog.showModal()
+  presentView(logAddDialog)
 })
 logAddClose.addEventListener('click', () => {
-  logAddDialog.close()
+  dismissView(logAddDialog)
   addError.textContent = ''
 })
 logOpen.addEventListener('click', () => {
   if (!addTime.value) addTime.value = currentClock().time
   paintLog(loadLog())
-  logDialog.showModal()
+  presentView(logDialog)
 })
 logPrev.addEventListener('click', () => {
   selectedLogKey = shiftDateKey(selectedLogKey || todayDateKey(), -1)
@@ -1806,8 +1931,7 @@ logList.addEventListener('click', (event) => {
   saveLog(loadLog().filter((entry) => entry.id !== button.dataset.remove))
   paintLog(loadLog())
 })
-logClose.addEventListener('click', () => logDialog.close())
-closeOnBackdrop(logDialog)
+logClose.addEventListener('click', () => dismissView(logDialog))
 
 aboutOpen.addEventListener('click', () => openAbout(false))
 aboutClose.addEventListener('click', () => aboutDialog.close())
@@ -1973,23 +2097,16 @@ for (const button of meridiemButtons) {
   })
 }
 
-const settingsDialog = document.querySelector<HTMLDialogElement>('#settings')!
+const settingsDialog = document.querySelector<HTMLElement>('#settings')!
 const themeColor = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
-const fullscreenModals = [logDialog, settingsDialog, logAddDialog]
 
 function paintModalStatusBar() {
-  const open = fullscreenModals.some((dialog) => dialog.open)
+  const open = pageViews().some((view) => viewIsOpen(view))
   themeColor?.setAttribute('content', open ? '#efe8dc' : '#000000')
 }
 
-const modalStatusObserver = new MutationObserver(paintModalStatusBar)
-for (const dialog of fullscreenModals) {
-  modalStatusObserver.observe(dialog, { attributes: true, attributeFilter: ['open'] })
-}
-
-document.querySelector<HTMLButtonElement>('#settings-open')!.addEventListener('click', () => settingsDialog.showModal())
-document.querySelector<HTMLButtonElement>('#settings-close')!.addEventListener('click', () => settingsDialog.close())
-closeOnBackdrop(settingsDialog)
+document.querySelector<HTMLButtonElement>('#settings-open')!.addEventListener('click', () => presentView(settingsDialog))
+document.querySelector<HTMLButtonElement>('#settings-close')!.addEventListener('click', () => dismissView(settingsDialog))
 
 document.addEventListener('input', () => queueMicrotask(sizeStepInputs))
 

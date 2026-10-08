@@ -14,12 +14,13 @@
   <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
   <title>Dosage Helper</title>
-  <script type="module" crossorigin src="./assets/index-rvkUuaDb.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-C3J7aR9k.css">
+  <script type="module" crossorigin src="./assets/index-CHgxmfI4.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-DZQxCawd.css">
 <link rel="manifest" href="./manifest.webmanifest"></head>
 
 <body>
   <div class="app">
+    <div id="home">
     <header>
       <div class="eyebrow-row">
         <p class="eyebrow">Bolus Insulin calculator</p>
@@ -35,7 +36,7 @@
       <div class="title-row">
         <h1>Dosage Helper</h1>
         <div class="title-actions">
-          <button id="log-open" class="header-icon" type="button" aria-haspopup="dialog" aria-controls="log"
+          <button id="log-open" class="header-icon" type="button" aria-controls="log" aria-expanded="false"
             aria-label="View log">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M9 6.5h10M9 12h10M9 17.5h10"></path>
@@ -44,7 +45,7 @@
               <circle cx="5" cy="17.5" r="1.15"></circle>
             </svg>
           </button>
-          <button id="settings-open" class="header-icon" type="button" aria-haspopup="dialog" aria-controls="settings"
+          <button id="settings-open" class="header-icon" type="button" aria-controls="settings" aria-expanded="false"
             aria-label="Set your routine">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path
@@ -180,8 +181,9 @@
       </div>
       <p id="save-note" class="save-note" aria-live="polite"></p>
     </section>
+    </div>
 
-    <dialog id="settings" aria-labelledby="settings-title">
+    <section id="settings" class="app-view" hidden tabindex="-1" aria-labelledby="settings-title">
       <div class="log-panel settings-panel">
         <div class="panel-actions">
           <button id="settings-close" type="button" aria-label="Close">×</button>
@@ -362,11 +364,9 @@
           </div>
         </div>
       </div>
-    </dialog>
+    </section>
 
-  </div>
-
-  <dialog id="log" aria-labelledby="log-title">
+    <section id="log" class="app-view" hidden tabindex="-1" aria-labelledby="log-title">
     <div class="about-panel log-panel">
       <div class="panel-actions">
         <button id="log-add-open" type="button" aria-label="Add an entry">+</button>
@@ -401,9 +401,9 @@
         <div id="log-list"></div>
       </div>
     </div>
-  </dialog>
+    </section>
 
-  <dialog id="log-add-dialog" aria-labelledby="log-add-title">
+    <section id="log-add-dialog" class="app-view" hidden tabindex="-1" aria-labelledby="log-add-title">
     <form id="log-add" class="log-panel settings-panel">
       <div class="log-add-body">
         <div class="panel-actions">
@@ -630,7 +630,9 @@
         <button id="log-add-button" type="submit">Save for</button>
       </div>
     </form>
-  </dialog>
+    </section>
+
+  </div>
 
   <dialog id="restore-confirm" aria-labelledby="restore-confirm-title">
     <div class="about-panel">
