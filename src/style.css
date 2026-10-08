@@ -2023,3 +2023,24 @@ button.secondary {
     color: var(--ink);
   }
 }
+
+/* Installed on iOS, the viewport stops one status bar short of the screen. WebKit only paints as far down as the
+   document reaches, so the document and the full-screen layers stretch to the real bottom edge. */
+html.ios-app {
+  overflow: hidden;
+}
+
+html.ios-app body {
+  min-height: 100lvh;
+}
+
+html.ios-app #home,
+html.ios-app .app-view.is-open,
+html.ios-app dialog::backdrop {
+  bottom: calc(100dvh - 100lvh);
+}
+
+html.ios-app dialog:modal {
+  bottom: calc(100dvh - 100lvh);
+  max-height: calc(100lvh - env(safe-area-inset-top) - env(safe-area-inset-bottom) - 32px);
+}

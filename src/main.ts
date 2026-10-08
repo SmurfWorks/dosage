@@ -1429,6 +1429,10 @@ function inSafari(): boolean {
   return /safari/i.test(ua)
 }
 
+if ((navigator as Navigator & { standalone?: boolean }).standalone === true) {
+  document.documentElement.classList.add('ios-app')
+}
+
 function stopSafariPinchZoom() {
   if (!inSafari()) return
   document.documentElement.classList.add('safari')
