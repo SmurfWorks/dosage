@@ -1866,8 +1866,7 @@ button.secondary {
     max-height: 100%;
     min-height: 0;
     overflow: hidden;
-    padding-top: 0;
-    padding-bottom: 0;
+    padding: 0;
   }
 
   #log-add > .log-add-body {
@@ -1875,7 +1874,11 @@ button.secondary {
     min-height: 0;
     overflow: auto;
     overscroll-behavior: contain;
-    padding-bottom: 22px;
+    padding:
+      0
+      max(18px, env(safe-area-inset-right))
+      22px
+      max(18px, env(safe-area-inset-left));
   }
 
   #log-add .about-head {
@@ -1886,10 +1889,5 @@ button.secondary {
     position: relative;
     bottom: auto;
     margin-top: 0;
-  }
-
-  #log-add > .log-save:has(> .card:not([hidden])) {
-    margin-left: calc(-1 * max(18px, env(safe-area-inset-left)));
-    margin-right: calc(-1 * max(18px, env(safe-area-inset-right)));
   }
 }
