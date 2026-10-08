@@ -1899,3 +1899,60 @@ button.secondary {
     margin-top: 0;
   }
 }
+
+/* Home-screen iOS draws the dialog backdrop through the status bar.
+   Pull full-screen modals into that strip and keep it as their top padding. */
+@media (display-mode: standalone), (display-mode: fullscreen) {
+  #log,
+  #settings,
+  #log-add-dialog {
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    top: calc(env(safe-area-inset-top) * -1);
+    right: 0;
+    bottom: auto;
+    left: 0;
+    width: 100%;
+    height: calc(100% + env(safe-area-inset-top));
+    max-height: none;
+    margin: 0;
+    padding-top: env(safe-area-inset-top);
+    overflow: hidden;
+  }
+
+  #log > .log-panel,
+  #settings > .log-panel {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: none;
+    padding-top: 18px;
+  }
+
+  #log .panel-actions,
+  #settings .panel-actions,
+  #log-add .panel-actions {
+    top: 18px;
+  }
+}
+
+@media (display-mode: standalone) and (min-width: 521px), (display-mode: fullscreen) and (min-width: 521px) {
+  #log-add {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: none;
+  }
+}
+
+@media (display-mode: standalone) and (max-width: 520px), (display-mode: fullscreen) and (max-width: 520px) {
+  #log-add {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+
+  #log-add .about-head {
+    margin-top: 18px;
+  }
+}

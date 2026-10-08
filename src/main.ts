@@ -1313,9 +1313,16 @@ function coveredByIsland(island: HTMLElement): number {
 }
 
 function islandScrolls(island: HTMLElement): boolean {
-  const dialog = island.closest('dialog')
-  const scroller = dialog instanceof HTMLElement ? dialog : document.documentElement
-  return scroller.scrollHeight - scroller.clientHeight > 1
+  let node = island.parentElement
+  while (node && node !== document.documentElement) {
+    const overflow = getComputedStyle(node).overflowY
+    if (overflow === 'auto' || overflow === 'scroll') {
+      return node.scrollHeight - node.clientHeight > 1
+    }
+    node = node.parentElement
+  }
+  const root = document.documentElement
+  return root.scrollHeight - root.clientHeight > 1
 }
 
 function paintSaveCover() {
@@ -1327,6 +1334,7 @@ function paintSaveCover() {
 
 paintSaveCover()
 window.addEventListener('scroll', paintSaveCover, { passive: true })
+document.addEventListener('scroll', paintSaveCover, { capture: true, passive: true })
 window.addEventListener('resize', paintSaveCover)
 logAddDialog.addEventListener('scroll', paintSaveCover, { passive: true })
 logAddDialog.addEventListener('toggle', () => requestAnimationFrame(paintSaveCover))
