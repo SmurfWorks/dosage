@@ -17,17 +17,9 @@ import {
 } from './basal'
 import { calculate, DEFAULT_SETTINGS, type Calculation, type Settings } from './calculator'
 import { dayGraphSvg } from './day-graph'
-import {
-  createDish,
-  DISH_GRAMS_MAX,
-  findDishes,
-  formatDishGrams,
-  loadDishes,
-  recordDishUse,
-  saveDishes,
-  upsertDish,
-  type Dish,
-} from './dishes'
+import { currentBrowser, inSafari, installCopy, installedOnIos, installsManually } from './device'
+import { loadDishes, saveDishes } from './dishes'
+import { createDishesView, type DishTarget } from './dishes-view'
 import { describeDose } from './format'
 import {
   browserTimeZone,
@@ -50,7 +42,11 @@ import {
   todayDateKey,
   type LogEntry,
 } from './log'
+import { watchSaveIslands } from './save-island'
+import { escapeHtml, parseDecimal } from './text'
+import { createToast } from './toast'
 import { formatGlucose, glucoseUnitLabel, type GlucoseUnit } from './units'
+import { createViewStack, viewIsLeaving, viewIsOpen } from './views'
 import './style.css'
 
 registerSW({ immediate: true })
@@ -93,6 +89,7 @@ const withBasalLabel = document.querySelector<HTMLElement>('#with-basal-label')!
 const basalList = document.querySelector<HTMLElement>('#basal-list')!
 const saveNote = document.querySelector<HTMLElement>('#save-note')!
 const toast = document.querySelector<HTMLElement>('#toast')!
+const showToast = createToast(toast)
 const entryNote = document.querySelector<HTMLTextAreaElement>('#entry-note')!
 const entryNoteDetails = document.querySelector<HTMLDetailsElement>('#entry-note-details')!
 const logDialog = document.querySelector<HTMLElement>('#log')!
@@ -110,22 +107,6 @@ const logAddDialog = document.querySelector<HTMLElement>('#log-add-dialog')!
 const dishesView = document.querySelector<HTMLElement>('#dishes')!
 const dishesOpen = document.querySelector<HTMLButtonElement>('#dishes-open')!
 const addDishesOpen = document.querySelector<HTMLButtonElement>('#add-dishes-open')!
-const dishList = document.querySelector<HTMLUListElement>('#dish-list')!
-const dishEmpty = document.querySelector<HTMLElement>('#dish-empty')!
-const dishForm = document.querySelector<HTMLFormElement>('#dish-form')!
-const dishName = document.querySelector<HTMLInputElement>('#dish-name')!
-const dishCarbs = document.querySelector<HTMLInputElement>('#dish-carbs')!
-const dishFibre = document.querySelector<HTMLInputElement>('#dish-fibre')!
-const dishFibreWrap = document.querySelector<HTMLElement>('#dish-fibre-wrap')!
-const dishError = document.querySelector<HTMLElement>('#dish-error')!
-const dishFinder = document.querySelector<HTMLElement>('#dish-finder')!
-const dishSearch = document.querySelector<HTMLInputElement>('#dish-search')!
-const dishFormOpen = document.querySelector<HTMLButtonElement>('#dish-form-open')!
-const dishFormCancel = document.querySelector<HTMLButtonElement>('#dish-form-cancel')!
-const dishNetCarbs = document.querySelector<HTMLElement>('#dish-net-carbs')!
-
-/** The form a picked dish fills in, and the screen Dishes slides over. */
-type DishTarget = { view: HTMLElement; carbs: HTMLInputElement; fibre: HTMLInputElement; include: HTMLInputElement }
 const logAddForm = document.querySelector<HTMLFormElement>('#log-add')!
 const logAddButton = document.querySelector<HTMLButtonElement>('#log-add-button')!
 const logAddDate = document.querySelector<HTMLElement>('#log-add-date')!
@@ -221,26 +202,6 @@ const carbEffect = splitField('carb')
 const insulinEffect = splitField('insulin')
 const rangeLow = splitField('range-low')
 const rangeHigh = splitField('range-high')
-
-function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (char) => {
-    const map: Record<string, string> = {
-      '&': '&amp;',
-      '<': '&lt;',
-      '>': '&gt;',
-      '"': '&quot;',
-      "'": '&#39;',
-    }
-    return map[char] ?? char
-  })
-}
-
-function parseDecimal(raw: string): number | null {
-  const trimmed = raw.trim().replace(',', '.')
-  if (!/^(?:\d+\.?\d*|\.\d+)$/.test(trimmed)) return null
-  const value = Number(trimmed)
-  return Number.isFinite(value) ? value : null
-}
 
 function glucoseCeiling(): number {
   return glucoseUnit === 'mgdl' ? MMOL_MAX * 18 : MMOL_MAX
@@ -387,8 +348,7 @@ function paintFibre() {
   showFibreInput.checked = showFibre
   fibreWrap.hidden = !showFibre
   addFibreWrap.hidden = !showFibre
-  dishFibreWrap.hidden = !showFibre
-  paintDishNetCarbs()
+  dishes.paintFibre()
   paintNetCarbs(netCarbsEl, readCarbs(), readFibre())
   paintNetCarbs(addNetCarbs, readOptionalAmount(addCarbs, 500) ?? 0, showFibre ? readOptionalAmount(addFibre, 500) ?? 0 : 0)
 }
@@ -950,146 +910,37 @@ function closeOnBackdrop(dialog: HTMLDialogElement) {
   })
 }
 
-function pageViews(): HTMLElement[] {
-  return ['#dishes', '#log-add-dialog', '#log', '#settings'].map(
-    (id) => document.querySelector<HTMLElement>(id)!,
-  )
-}
-
 const homeView = document.querySelector<HTMLElement>('#home')!
+const settingsView = document.querySelector<HTMLElement>('#settings')!
 const homeDishTarget: DishTarget = { view: homeView, carbs: carbsInput, fibre: fibreInput, include: includeCarbsInput }
 const addDishTarget: DishTarget = { view: logAddDialog, carbs: addCarbs, fibre: addFibre, include: includeAddCarbs }
-let dishTarget = homeDishTarget
-const viewEpoch = new WeakMap<HTMLElement, number>()
-const viewReturn = new WeakMap<HTMLElement, HTMLElement>()
+/** Set once the save islands are watched; until then there is nothing to repaint. */
+let paintSaveCover = () => {}
 
-function nextViewEpoch(view: HTMLElement): number {
-  const epoch = (viewEpoch.get(view) ?? 0) + 1
-  viewEpoch.set(view, epoch)
-  return epoch
-}
+const views = createViewStack({
+  home: homeView,
+  views: [dishesView, logAddDialog, logDialog, settingsView],
+  under: (view) => {
+    if (view === dishesView) return dishes.target().view
+    return view === logAddDialog ? logDialog : homeView
+  },
+  onChange: syncViewLayer,
+  onSettle: () => paintSaveCover(),
+})
 
-function viewIsOpen(view: HTMLElement): boolean {
-  return view.classList.contains('is-open')
+function covers(view: HTMLElement): boolean {
+  return viewIsOpen(view) && !viewIsLeaving(view)
 }
 
 function syncViewLayer() {
-  const covering = pageViews().some((view) => viewIsOpen(view) && !view.classList.contains('is-leaving'))
-  homeView.toggleAttribute('inert', covering)
-  logDialog.toggleAttribute('inert', viewIsOpen(logAddDialog) && !logAddDialog.classList.contains('is-leaving'))
-  logAddDialog.toggleAttribute(
-    'inert',
-    dishTarget.view === logAddDialog && viewIsOpen(dishesView) && !dishesView.classList.contains('is-leaving'),
-  )
+  homeView.toggleAttribute('inert', [dishesView, logAddDialog, logDialog, settingsView].some(covers))
+  logDialog.toggleAttribute('inert', covers(logAddDialog))
+  logAddDialog.toggleAttribute('inert', dishes.target().view === logAddDialog && covers(dishesView))
   logOpen.setAttribute('aria-expanded', String(viewIsOpen(logDialog)))
-  document.querySelector('#settings-open')?.setAttribute('aria-expanded', String(viewIsOpen(settingsView())))
-  dishesOpen.setAttribute('aria-expanded', String(viewIsOpen(dishesView) && dishTarget.view === homeView))
-  addDishesOpen.setAttribute('aria-expanded', String(viewIsOpen(dishesView) && dishTarget.view === logAddDialog))
+  document.querySelector('#settings-open')?.setAttribute('aria-expanded', String(viewIsOpen(settingsView)))
+  dishesOpen.setAttribute('aria-expanded', String(viewIsOpen(dishesView) && dishes.target().view === homeView))
+  addDishesOpen.setAttribute('aria-expanded', String(viewIsOpen(dishesView) && dishes.target().view === logAddDialog))
 }
-
-const sliding = new Map<HTMLElement, () => void>()
-
-function holdScrollWhileSliding(view: HTMLElement) {
-  sliding.get(view)?.()
-  const settle = (event?: TransitionEvent) => {
-    if (event && (event.target !== view || event.propertyName !== 'transform')) return
-    view.removeEventListener('transitionend', settle)
-    window.clearTimeout(timer)
-    sliding.delete(view)
-    document.documentElement.classList.toggle('is-sliding', sliding.size > 0)
-  }
-  const timer = window.setTimeout(settle, 320)
-  view.addEventListener('transitionend', settle)
-  sliding.set(view, settle)
-  document.documentElement.classList.add('is-sliding')
-}
-
-function viewUnder(view: HTMLElement): HTMLElement {
-  if (view === dishesView) return dishTarget.view
-  return view === logAddDialog ? logDialog : homeView
-}
-
-function settingsView(): HTMLElement {
-  return document.querySelector<HTMLElement>('#settings')!
-}
-
-function presentView(view: HTMLElement) {
-  if (
-    viewIsOpen(view) &&
-    view.classList.contains('is-active') &&
-    !view.classList.contains('is-leaving') &&
-    !view.classList.contains('is-parked')
-  ) {
-    return
-  }
-  const from = viewUnder(view)
-  const epoch = nextViewEpoch(view)
-  const opener = document.activeElement
-  if (opener instanceof HTMLElement && opener !== view && !view.contains(opener)) viewReturn.set(view, opener)
-  view.classList.remove('is-leaving', 'is-parked', 'is-active')
-  view.hidden = false
-  view.classList.add('is-open')
-  view.scrollTop = 0
-  syncViewLayer()
-  const reveal = () => {
-    if (viewEpoch.get(view) !== epoch) return
-    from.classList.add('is-parked')
-    view.classList.add('is-active')
-    view.focus({ preventScroll: true })
-    paintSaveCover()
-  }
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    reveal()
-    return
-  }
-  holdScrollWhileSliding(view)
-  requestAnimationFrame(() => {
-    requestAnimationFrame(reveal)
-  })
-}
-
-function dismissView(view: HTMLElement) {
-  if (!viewIsOpen(view) || view.classList.contains('is-leaving')) return
-  const epoch = nextViewEpoch(view)
-  const back = viewUnder(view)
-  const finish = () => {
-    if (viewEpoch.get(view) !== epoch || !viewIsOpen(view)) return
-    view.classList.remove('is-active', 'is-leaving', 'is-open', 'is-parked')
-    view.hidden = true
-    syncViewLayer()
-    requestAnimationFrame(paintSaveCover)
-    const returnFocus = viewReturn.get(view)
-    if (returnFocus?.isConnected) returnFocus.focus()
-  }
-  back.classList.remove('is-parked')
-  if (back !== homeView) back.classList.add('is-active')
-  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) {
-    finish()
-    return
-  }
-  view.classList.add('is-leaving')
-  view.classList.remove('is-active')
-  holdScrollWhileSliding(view)
-  syncViewLayer()
-  const onEnd = (event: TransitionEvent) => {
-    if (event.target !== view || event.propertyName !== 'transform') return
-    view.removeEventListener('transitionend', onEnd)
-    finish()
-  }
-  view.addEventListener('transitionend', onEnd)
-  window.setTimeout(() => {
-    view.removeEventListener('transitionend', onEnd)
-    finish()
-  }, 320)
-}
-
-document.addEventListener('keydown', (event) => {
-  if (event.key !== 'Escape' || document.querySelector('dialog:modal')) return
-  const top = pageViews().find((view) => viewIsOpen(view) && !view.classList.contains('is-leaving'))
-  if (!top) return
-  event.preventDefault()
-  dismissView(top)
-})
 
 function carriedTarget(at: string): { mmol: number; source: LogEntry | null } {
   const settings = readSettings()
@@ -1321,144 +1172,20 @@ document.querySelector('#fibre-up-10')!.addEventListener('click', () => stepFibr
 document.querySelector('#fibre-down-1')!.addEventListener('click', () => stepFibre(-1))
 document.querySelector('#fibre-up-1')!.addEventListener('click', () => stepFibre(1))
 
-/** Whether Add a dish is open while there are dishes; with none, it is always open. */
-let dishFormShown = false
+const dishes = createDishesView(
+  {
+    present: (view) => views.present(view),
+    dismiss: (view) => views.dismiss(view),
+    showFibre: () => showFibre,
+    paintNetCarbs,
+    stepFromButton,
+    sizeStepInputs,
+  },
+  homeDishTarget,
+)
 
-function paintDishes() {
-  const dishes = loadDishes()
-  const query = dishSearch.value.trim()
-  const matches = findDishes(dishes, query)
-  dishFinder.hidden = dishes.length === 0
-  dishList.hidden = matches.length === 0
-  dishList.innerHTML = matches
-    .map(
-      (dish) =>
-        `<li class="dish"><button type="button" class="dish-pick" data-dish="${escapeHtml(dish.id)}"><span class="dish-name">${escapeHtml(dish.name)}</span><span class="dish-grams-text">${escapeHtml(formatDishGrams(dish))}</span></button><button type="button" class="log-remove" data-dish-remove="${escapeHtml(dish.id)}" aria-label="Remove ${escapeHtml(dish.name)}">×</button></li>`,
-    )
-    .join('')
-  dishEmpty.hidden = matches.length > 0
-  dishEmpty.textContent =
-    dishes.length === 0 ? 'No dishes yet. Add the ones you eat often below.' : `No dishes match “${query}”.`
-  const formShown = dishes.length === 0 || dishFormShown
-  dishForm.hidden = !formShown
-  dishFormOpen.hidden = formShown
-  dishFormOpen.setAttribute('aria-expanded', String(formShown))
-  dishFormCancel.hidden = dishes.length === 0
-}
-
-function paintDishNetCarbs() {
-  paintNetCarbs(dishNetCarbs, readDishGrams(dishCarbs) ?? 0, showFibre ? (readDishGrams(dishFibre) ?? 0) : 0)
-}
-
-function showDishForm(shown: boolean) {
-  dishFormShown = shown
-  dishError.textContent = ''
-  paintDishes()
-}
-
-function gramsText(grams: number): string {
-  return grams > 0 ? String(Number(grams.toFixed(2))) : ''
-}
-
-function openDishes(target: DishTarget) {
-  dishTarget = target
-  const carbs = parseDecimal(target.carbs.value) ?? 0
-  const fibre = showFibre ? (parseDecimal(target.fibre.value) ?? 0) : 0
-  dishName.value = ''
-  dishCarbs.value = target.include.checked ? gramsText(carbs) : ''
-  dishFibre.value = target.include.checked ? gramsText(fibre) : ''
-  dishSearch.value = ''
-  showDishForm(false)
-  paintDishNetCarbs()
-  presentView(dishesView)
-  sizeStepInputs()
-}
-
-function pickDish(dish: Dish) {
-  const { carbs, fibre, include } = dishTarget
-  saveDishes(recordDishUse(loadDishes(), dish.id))
-  carbs.value = String(dish.carbsGrams)
-  fibre.value = String(dish.fibreGrams)
-  if (!include.checked) {
-    include.checked = true
-    include.dispatchEvent(new Event('change', { bubbles: true }))
-  }
-  carbs.dispatchEvent(new Event('input', { bubbles: true }))
-  fibre.dispatchEvent(new Event('input', { bubbles: true }))
-  dismissView(dishesView)
-}
-
-function readDishGrams(input: HTMLInputElement): number | null {
-  if (!input.value.trim()) return 0
-  const grams = parseDecimal(input.value)
-  return grams === null || grams > DISH_GRAMS_MAX ? null : grams
-}
-
-dishesOpen.addEventListener('click', () => openDishes(homeDishTarget))
-addDishesOpen.addEventListener('click', () => openDishes(addDishTarget))
-dishForm.addEventListener('click', stepFromButton)
-dishForm.addEventListener('input', paintDishNetCarbs)
-dishSearch.addEventListener('input', paintDishes)
-dishSearch.addEventListener('keydown', (event) => {
-  if (event.key === 'Enter') dishSearch.blur()
-})
-
-dishFormOpen.addEventListener('click', () => {
-  // A search that found nothing is most likely the name of the dish to add.
-  if (dishList.hidden && dishSearch.value.trim()) dishName.value = dishSearch.value.trim()
-  showDishForm(true)
-  dishName.focus()
-})
-dishFormCancel.addEventListener('click', () => {
-  showDishForm(false)
-  dishFormOpen.focus()
-})
-document.querySelector('#dishes-close')!.addEventListener('click', () => dismissView(dishesView))
-
-dishList.addEventListener('click', (event) => {
-  const target = event.target as Element
-  const remove = target.closest<HTMLButtonElement>('[data-dish-remove]')
-  if (remove) {
-    saveDishes(loadDishes().filter((dish) => dish.id !== remove.dataset.dishRemove))
-    paintDishes()
-    return
-  }
-  const pick = target.closest<HTMLButtonElement>('[data-dish]')
-  const dish = loadDishes().find((item) => item.id === pick?.dataset.dish)
-  if (dish) pickDish(dish)
-})
-
-dishForm.addEventListener('submit', (event) => {
-  event.preventDefault()
-  const name = dishName.value.trim()
-  const carbs = readDishGrams(dishCarbs)
-  const fibre = showFibre ? readDishGrams(dishFibre) : 0
-  if (!name) {
-    dishError.textContent = 'Give the dish a name.'
-    dishName.focus()
-    return
-  }
-  if (carbs === null || fibre === null) {
-    dishError.textContent = `Enter grams from 0 to ${DISH_GRAMS_MAX}.`
-    ;(carbs === null ? dishCarbs : dishFibre).focus()
-    return
-  }
-  const dish = createDish(name, carbs, fibre)
-  if (!dish) {
-    dishError.textContent = 'That dish could not be saved.'
-    return
-  }
-  saveDishes(upsertDish(loadDishes(), dish))
-  dishName.value = ''
-  dishCarbs.value = ''
-  dishFibre.value = ''
-  dishSearch.value = ''
-  paintDishNetCarbs()
-  showDishForm(false)
-  dishName.blur()
-  dishCarbs.blur()
-  dishFibre.blur()
-})
+dishesOpen.addEventListener('click', () => dishes.open(homeDishTarget))
+addDishesOpen.addEventListener('click', () => dishes.open(addDishTarget))
 
 carbsInput.addEventListener('input', () => {
   glucoseFromLog = false
@@ -1556,7 +1283,7 @@ restoreConfirmButton.addEventListener('click', () => {
   applyRoutine(backup.routine)
   saveLog(backup.log)
   saveDishes(backup.dishes)
-  paintDishes()
+  dishes.paint()
   render()
   if (viewIsOpen(logDialog)) paintLog(backup.log)
   showToast('Restored your routine, log and dishes.')
@@ -1577,7 +1304,7 @@ deleteConfirmButton.addEventListener('click', () => {
   saveSettings()
   saveLog([])
   saveDishes([])
-  paintDishes()
+  dishes.paint()
   carbsInput.value = '0'
   fibreInput.value = '0'
   entryNote.value = ''
@@ -1608,20 +1335,12 @@ paintVisualViewport()
 window.visualViewport?.addEventListener('resize', paintVisualViewport)
 window.visualViewport?.addEventListener('scroll', paintVisualViewport)
 
-function inSafari(): boolean {
-  const appleNavigator = navigator as Navigator & { standalone?: boolean }
-  if (appleNavigator.standalone === true) return true
-  const ua = navigator.userAgent
-  if (/chrome|chromium|crios|fxios|edg|android/i.test(ua)) return false
-  return /safari/i.test(ua)
-}
+const browser = currentBrowser()
 
-if ((navigator as Navigator & { standalone?: boolean }).standalone === true) {
-  document.documentElement.classList.add('ios-app')
-}
+if (installedOnIos(browser)) document.documentElement.classList.add('ios-app')
 
 function stopSafariPinchZoom() {
-  if (!inSafari()) return
+  if (!inSafari(browser)) return
   document.documentElement.classList.add('safari')
   const blockGesture = (event: Event) => {
     if (event.cancelable) event.preventDefault()
@@ -1640,58 +1359,11 @@ function stopSafariPinchZoom() {
 
 stopSafariPinchZoom()
 
-const saveIslands = document.querySelectorAll<HTMLElement>('.log-save')
-
-function coveredByIsland(island: HTMLElement): number {
-  const scroller = island.previousElementSibling
-  if (
-    scroller instanceof HTMLElement &&
-    scroller.classList.contains('log-add-body') &&
-    window.matchMedia('(max-width: 520px)').matches
-  ) {
-    return scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight
-  }
-  const top = island.getBoundingClientRect().top
-  let covered = 0
-  const parent = island.parentElement
-  if (!parent) return 0
-  for (const child of parent.children) {
-    if (child === island) break
-    covered = Math.max(covered, child.getBoundingClientRect().bottom - top)
-  }
-  return covered
-}
-
-function islandScrolls(island: HTMLElement): boolean {
-  let node = island.parentElement
-  while (node && node !== document.documentElement) {
-    const overflow = getComputedStyle(node).overflowY
-    if (overflow === 'auto' || overflow === 'scroll') {
-      return node.scrollHeight - node.clientHeight > 1
-    }
-    node = node.parentElement
-  }
-  const root = document.documentElement
-  return root.scrollHeight - root.clientHeight > 1
-}
-
-function paintSaveCover() {
-  for (const island of saveIslands) {
-    island.classList.toggle('is-covering', coveredByIsland(island) > 28)
-    island.classList.toggle('is-scrollable', islandScrolls(island))
-  }
-}
-
-paintSaveCover()
-window.addEventListener('scroll', paintSaveCover, { passive: true })
-document.addEventListener('scroll', paintSaveCover, { capture: true, passive: true })
-window.addEventListener('resize', paintSaveCover)
-logAddDialog.addEventListener('scroll', paintSaveCover, { passive: true })
 const addBody = document.querySelector<HTMLElement>('.log-add-body')
-addBody?.addEventListener('scroll', paintSaveCover, { passive: true })
-new ResizeObserver(paintSaveCover).observe(homeView)
-new ResizeObserver(paintSaveCover).observe(document.querySelector('#log-add')!)
-if (addBody) new ResizeObserver(paintSaveCover).observe(addBody)
+paintSaveCover = watchSaveIslands(
+  [homeView, document.querySelector<HTMLElement>('#log-add')!, ...(addBody ? [addBody] : [])],
+  [logAddDialog, ...(addBody ? [addBody] : [])],
+)
 
 function bindNoteEditor(note: HTMLTextAreaElement) {
   const field = note.closest('.note-field')
@@ -1721,21 +1393,6 @@ bindNoteEditor(addNote)
 entryNote.addEventListener('input', () => {
   render()
 })
-
-let toastTimer = 0
-
-function showToast(message: string) {
-  window.clearTimeout(toastTimer)
-  toast.textContent = message
-  if (toast.matches(':popover-open')) toast.hidePopover()
-  toast.classList.remove('is-visible')
-  toast.showPopover()
-  requestAnimationFrame(() => requestAnimationFrame(() => toast.classList.add('is-visible')))
-  toastTimer = window.setTimeout(() => {
-    toast.classList.remove('is-visible')
-    toastTimer = window.setTimeout(() => toast.hidePopover(), 400)
-  }, 3000)
-}
 
 function storeLogEntry(payload: {
   glucoseMmol: number
@@ -1770,7 +1427,7 @@ function storeLogEntry(payload: {
   selectedLogKey = logDateKey(entry.at, entry.timeZone)
   if (!addTime.value) addTime.value = currentClock().time
   paintLog(loadLog())
-  if (!viewIsOpen(logDialog)) presentView(logDialog)
+  if (!viewIsOpen(logDialog)) views.present(logDialog)
   showToast(`Saved log entry for ${formatLogTime(entry.at, entry.timeZone)}`)
 }
 
@@ -1873,7 +1530,7 @@ logAddForm.addEventListener('submit', (event) => {
   entries.push(entry)
   saveLog(entries)
   clearAddForm()
-  dismissView(logAddDialog)
+  views.dismiss(logAddDialog)
   paintAddBasal()
   paintLog(loadLog())
   showToast(`Saved log entry for ${formatLogTime(entry.at, entry.timeZone)}`)
@@ -2092,16 +1749,16 @@ logAddOpen.addEventListener('click', () => {
   writeAddGlucoseDefault()
   paintAddInclusion()
   sizeStepInputs()
-  presentView(logAddDialog)
+  views.present(logAddDialog)
 })
 logAddClose.addEventListener('click', () => {
-  dismissView(logAddDialog)
+  views.dismiss(logAddDialog)
   addError.textContent = ''
 })
 logOpen.addEventListener('click', () => {
   if (!addTime.value) addTime.value = currentClock().time
   paintLog(loadLog())
-  presentView(logDialog)
+  views.present(logDialog)
 })
 logPrev.addEventListener('click', () => {
   selectedLogKey = shiftDateKey(selectedLogKey || todayDateKey(), -1)
@@ -2144,7 +1801,7 @@ logList.addEventListener('click', (event) => {
   saveLog(loadLog().filter((entry) => entry.id !== button.dataset.remove))
   paintLog(loadLog())
 })
-logClose.addEventListener('click', () => dismissView(logDialog))
+logClose.addEventListener('click', () => views.dismiss(logDialog))
 
 aboutOpen.addEventListener('click', () => openAbout(false))
 aboutClose.addEventListener('click', () => aboutDialog.close())
@@ -2200,27 +1857,8 @@ function runningAsApp(): boolean {
     window.matchMedia('(display-mode: standalone)').matches ||
     window.matchMedia('(display-mode: fullscreen)').matches ||
     window.matchMedia('(display-mode: minimal-ui)').matches ||
-    ('standalone' in navigator && Boolean((navigator as Navigator & { standalone?: boolean }).standalone))
+    installedOnIos(browser)
   )
-}
-
-function appleHandheld(): boolean {
-  const ua = navigator.userAgent
-  if (/iphone|ipad|ipod/i.test(ua)) return true
-  const safari = /safari/i.test(ua) && !/chrome|chromium|android|crios|fxios|edg/i.test(ua)
-  return safari && navigator.maxTouchPoints > 1
-}
-
-function desktopSafari(): boolean {
-  const ua = navigator.userAgent
-  const safari = /safari/i.test(ua) && !/chrome|chromium|android|crios|fxios|edg/i.test(ua)
-  return safari && !appleHandheld()
-}
-
-function installCopy(): string {
-  if (appleHandheld()) return 'To install, tap Share, then Add to Home Screen.'
-  if (desktopSafari()) return 'To install, choose File, then Add to Dock.'
-  return 'Install this calculator on your home screen.'
 }
 
 function showInstall() {
@@ -2228,9 +1866,8 @@ function showInstall() {
     installEl.hidden = true
     return
   }
-  const manual = appleHandheld() || desktopSafari()
-  installText.textContent = installCopy()
-  installButton.hidden = manual
+  installText.textContent = installCopy(browser)
+  installButton.hidden = installsManually(browser)
   installEl.hidden = false
 }
 
@@ -2321,8 +1958,8 @@ for (const button of meridiemButtons) {
 }
 
 const settingsDialog = document.querySelector<HTMLElement>('#settings')!
-document.querySelector<HTMLButtonElement>('#settings-open')!.addEventListener('click', () => presentView(settingsDialog))
-document.querySelector<HTMLButtonElement>('#settings-close')!.addEventListener('click', () => dismissView(settingsDialog))
+document.querySelector<HTMLButtonElement>('#settings-open')!.addEventListener('click', () => views.present(settingsDialog))
+document.querySelector<HTMLButtonElement>('#settings-close')!.addEventListener('click', () => views.dismiss(settingsDialog))
 
 document.addEventListener('input', () => queueMicrotask(sizeStepInputs))
 
