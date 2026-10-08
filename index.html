@@ -463,10 +463,19 @@
           </section>
 
           <section id="add-carbs-wrap" class="card">
-            <label class="include-check" for="include-add-carbs">
-              <input id="include-add-carbs" type="checkbox" />
-              Carbs
-            </label>
+            <div class="carbs-head">
+              <label class="include-check" for="include-add-carbs">
+                <input id="include-add-carbs" type="checkbox" />
+                Carbs
+              </label>
+              <button id="add-dishes-open" class="dishes-open" type="button" aria-expanded="false">
+                <svg viewBox="0 0 24 24" aria-hidden="true">
+                  <path d="M3.5 12.5h17a8.5 8.5 0 0 1-17 0Z"></path>
+                  <path d="M9 8.5c0-1.5 1.5-1.5 1.5-3M13.5 8.5c0-1.5 1.5-1.5 1.5-3"></path>
+                </svg>
+                Dishes
+              </button>
+            </div>
             <div class="split carb-split">
               <div class="step-pill">
                 <button type="button" data-step-input="add-carbs" data-step-size="big" data-step-dir="-1"
@@ -659,18 +668,44 @@
                 placeholder="Porridge with banana" />
             </div>
             <div class="dish-grams">
-              <div>
-                <label for="dish-carbs">Carbs</label>
-                <div class="field">
+              <label for="dish-carbs">Carbs</label>
+              <div class="split carb-split">
+                <div class="step-pill">
+                  <button type="button" data-step-input="dish-carbs" data-step-size="big" data-step-dir="-1"
+                    aria-label="Lower carbohydrate by 10 grams">−</button>
+                  <button type="button" data-step-input="dish-carbs" data-step-size="big" data-step-dir="1"
+                    aria-label="Raise carbohydrate by 10 grams">+</button>
+                </div>
+                <div class="split-value">
                   <input id="dish-carbs" type="text" inputmode="decimal" autocomplete="off" placeholder="0" />
-                  <span class="dish-unit">g</span>
+                  <span class="carb-unit">g</span>
+                </div>
+                <div class="step-pill">
+                  <button type="button" data-step-input="dish-carbs" data-step-size="small" data-step-dir="-1"
+                    aria-label="Lower carbohydrate by 1 gram">−</button>
+                  <button type="button" data-step-input="dish-carbs" data-step-size="small" data-step-dir="1"
+                    aria-label="Raise carbohydrate by 1 gram">+</button>
                 </div>
               </div>
-              <div id="dish-fibre-wrap">
+              <div id="dish-fibre-wrap" class="fibre">
                 <label for="dish-fibre">Fibre</label>
-                <div class="field">
-                  <input id="dish-fibre" type="text" inputmode="decimal" autocomplete="off" placeholder="0" />
-                  <span class="dish-unit">g</span>
+                <div class="split carb-split fibre-split">
+                  <div class="step-pill">
+                  <button type="button" data-step-input="dish-fibre" data-step-size="big" data-step-dir="-1"
+                    aria-label="Lower fibre by 10 grams">−</button>
+                  <button type="button" data-step-input="dish-fibre" data-step-size="big" data-step-dir="1"
+                    aria-label="Raise fibre by 10 grams">+</button>
+                </div>
+                  <div class="split-value">
+                    <input id="dish-fibre" type="text" inputmode="decimal" autocomplete="off" placeholder="0" />
+                    <span class="carb-unit">g</span>
+                  </div>
+                  <div class="step-pill">
+                  <button type="button" data-step-input="dish-fibre" data-step-size="small" data-step-dir="-1"
+                    aria-label="Lower fibre by 1 gram">−</button>
+                  <button type="button" data-step-input="dish-fibre" data-step-size="small" data-step-dir="1"
+                    aria-label="Raise fibre by 1 gram">+</button>
+                </div>
                 </div>
               </div>
             </div>

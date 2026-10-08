@@ -106,6 +106,7 @@ const logAddClose = document.querySelector<HTMLButtonElement>('#log-add-close')!
 const logAddDialog = document.querySelector<HTMLElement>('#log-add-dialog')!
 const dishesView = document.querySelector<HTMLElement>('#dishes')!
 const dishesOpen = document.querySelector<HTMLButtonElement>('#dishes-open')!
+const addDishesOpen = document.querySelector<HTMLButtonElement>('#add-dishes-open')!
 const dishList = document.querySelector<HTMLUListElement>('#dish-list')!
 const dishEmpty = document.querySelector<HTMLElement>('#dish-empty')!
 const dishForm = document.querySelector<HTMLFormElement>('#dish-form')!
@@ -114,6 +115,9 @@ const dishCarbs = document.querySelector<HTMLInputElement>('#dish-carbs')!
 const dishFibre = document.querySelector<HTMLInputElement>('#dish-fibre')!
 const dishFibreWrap = document.querySelector<HTMLElement>('#dish-fibre-wrap')!
 const dishError = document.querySelector<HTMLElement>('#dish-error')!
+
+/** The form a picked dish fills in, and the screen Dishes slides over. */
+type DishTarget = { view: HTMLElement; carbs: HTMLInputElement; fibre: HTMLInputElement; include: HTMLInputElement }
 const logAddForm = document.querySelector<HTMLFormElement>('#log-add')!
 const logAddButton = document.querySelector<HTMLButtonElement>('#log-add-button')!
 const logAddDate = document.querySelector<HTMLElement>('#log-add-date')!
@@ -938,12 +942,15 @@ function closeOnBackdrop(dialog: HTMLDialogElement) {
 }
 
 function pageViews(): HTMLElement[] {
-  return ['#log-add-dialog', '#log', '#settings', '#dishes'].map(
+  return ['#dishes', '#log-add-dialog', '#log', '#settings'].map(
     (id) => document.querySelector<HTMLElement>(id)!,
   )
 }
 
 const homeView = document.querySelector<HTMLElement>('#home')!
+const homeDishTarget: DishTarget = { view: homeView, carbs: carbsInput, fibre: fibreInput, include: includeCarbsInput }
+const addDishTarget: DishTarget = { view: logAddDialog, carbs: addCarbs, fibre: addFibre, include: includeAddCarbs }
+let dishTarget = homeDishTarget
 const viewEpoch = new WeakMap<HTMLElement, number>()
 const viewReturn = new WeakMap<HTMLElement, HTMLElement>()
 
@@ -961,9 +968,14 @@ function syncViewLayer() {
   const covering = pageViews().some((view) => viewIsOpen(view) && !view.classList.contains('is-leaving'))
   homeView.toggleAttribute('inert', covering)
   logDialog.toggleAttribute('inert', viewIsOpen(logAddDialog) && !logAddDialog.classList.contains('is-leaving'))
+  logAddDialog.toggleAttribute(
+    'inert',
+    dishTarget.view === logAddDialog && viewIsOpen(dishesView) && !dishesView.classList.contains('is-leaving'),
+  )
   logOpen.setAttribute('aria-expanded', String(viewIsOpen(logDialog)))
   document.querySelector('#settings-open')?.setAttribute('aria-expanded', String(viewIsOpen(settingsView())))
-  dishesOpen.setAttribute('aria-expanded', String(viewIsOpen(dishesView)))
+  dishesOpen.setAttribute('aria-expanded', String(viewIsOpen(dishesView) && dishTarget.view === homeView))
+  addDishesOpen.setAttribute('aria-expanded', String(viewIsOpen(dishesView) && dishTarget.view === logAddDialog))
 }
 
 const sliding = new Map<HTMLElement, () => void>()
@@ -984,6 +996,7 @@ function holdScrollWhileSliding(view: HTMLElement) {
 }
 
 function viewUnder(view: HTMLElement): HTMLElement {
+  if (view === dishesView) return dishTarget.view
   return view === logAddDialog ? logDialog : homeView
 }
 
@@ -1315,24 +1328,29 @@ function gramsText(grams: number): string {
   return grams > 0 ? String(Number(grams.toFixed(2))) : ''
 }
 
-function openDishes() {
+function openDishes(target: DishTarget) {
+  dishTarget = target
+  const carbs = parseDecimal(target.carbs.value) ?? 0
+  const fibre = showFibre ? (parseDecimal(target.fibre.value) ?? 0) : 0
   dishName.value = ''
-  dishCarbs.value = gramsText(readCarbs())
-  dishFibre.value = gramsText(readFibre())
+  dishCarbs.value = target.include.checked ? gramsText(carbs) : ''
+  dishFibre.value = target.include.checked ? gramsText(fibre) : ''
   dishError.textContent = ''
   paintDishes()
   presentView(dishesView)
+  sizeStepInputs()
 }
 
 function pickDish(dish: Dish) {
-  carbsInput.value = String(dish.carbsGrams)
-  fibreInput.value = String(dish.fibreGrams)
-  if (!includeCarbsInput.checked) {
-    includeCarbsInput.checked = true
-    includeCarbsInput.dispatchEvent(new Event('change', { bubbles: true }))
+  const { carbs, fibre, include } = dishTarget
+  carbs.value = String(dish.carbsGrams)
+  fibre.value = String(dish.fibreGrams)
+  if (!include.checked) {
+    include.checked = true
+    include.dispatchEvent(new Event('change', { bubbles: true }))
   }
-  carbsInput.dispatchEvent(new Event('input', { bubbles: true }))
-  fibreInput.dispatchEvent(new Event('input', { bubbles: true }))
+  carbs.dispatchEvent(new Event('input', { bubbles: true }))
+  fibre.dispatchEvent(new Event('input', { bubbles: true }))
   dismissView(dishesView)
 }
 
@@ -1342,7 +1360,9 @@ function readDishGrams(input: HTMLInputElement): number | null {
   return grams === null || grams > DISH_GRAMS_MAX ? null : grams
 }
 
-dishesOpen.addEventListener('click', openDishes)
+dishesOpen.addEventListener('click', () => openDishes(homeDishTarget))
+addDishesOpen.addEventListener('click', () => openDishes(addDishTarget))
+dishForm.addEventListener('click', stepFromButton)
 document.querySelector('#dishes-close')!.addEventListener('click', () => dismissView(dishesView))
 
 dishList.addEventListener('click', (event) => {
@@ -1904,6 +1924,8 @@ function stepAddField(input: HTMLInputElement, size: 'big' | 'small', direction:
     'add-target': { big: mgdl ? 10 : 1, small: mgdl ? 1 : 0.1, decimals: mgdl ? 0 : 1 },
     'add-carbs': { big: 10, small: 1, decimals: 0 },
     'add-fibre': { big: 10, small: 1, decimals: 0 },
+    'dish-carbs': { big: 10, small: 1, decimals: 0 },
+    'dish-fibre': { big: 10, small: 1, decimals: 0 },
     'add-insulin': { big: 1, small: readSettings().insulinStep || 0.5, decimals: 2 },
     'add-basal': { big: 1, small: readSettings().insulinStep || 0.5, decimals: 2 },
   }
@@ -1915,13 +1937,15 @@ function stepAddField(input: HTMLInputElement, size: 'big' | 'small', direction:
   input.dispatchEvent(new Event('input', { bubbles: true }))
 }
 
-logAddForm.addEventListener('click', (event) => {
+function stepFromButton(event: Event) {
   const button = (event.target as HTMLElement).closest<HTMLButtonElement>('button[data-step-input]')
   if (!button) return
   const input = document.getElementById(button.dataset.stepInput!) as HTMLInputElement | null
   if (!input || input.closest('[hidden]')) return
   stepAddField(input, button.dataset.stepSize === 'big' ? 'big' : 'small', Number(button.dataset.stepDir))
-})
+}
+
+logAddForm.addEventListener('click', stepFromButton)
 
 logAddForm.addEventListener('input', (event) => {
   const target = event.target as HTMLElement

@@ -21,7 +21,7 @@ The insulin result stays hidden until you change the glucose, carbohydrate, or f
 
 Change the ratios in **Configure your dosage ratios**. They are stored in local storage on this device.
 
-**Dishes**, beside Carbs, keeps the dishes you eat often with their carbohydrate and fibre. Tap a dish to fill in both amounts. Add a dish with a name and its grams; the form starts with the amounts already entered, and saving a name you already have updates that dish. Remove a dish with its ×. Dishes are stored on this device.
+**Dishes**, beside Carbs in the calculator and in **Add an entry**, keeps the dishes you eat often with their carbohydrate and fibre. Tap a dish to fill in both amounts in the form you opened it from. Add a dish with a name and its grams, using the same stepped inputs as the calculator; the form starts with the amounts already entered, and saving a name you already have updates that dish. Remove a dish with its ×. Dishes are stored on this device.
 
 **Backup to file** saves the routine, the log, and your dishes to a JSON file, and **Restore from file** brings them back. A backup made before dishes existed restores with no dishes.
 

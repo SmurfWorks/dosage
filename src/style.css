@@ -975,18 +975,10 @@ input::placeholder {
 .dish-form #dish-name { font-size: 1.1rem; }
 
 .dish-grams {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
   margin-top: 14px;
 }
 
-.dish-grams > [hidden] { display: none; }
-
-.dish-unit {
-  color: var(--muted);
-  font-weight: 650;
-}
+.dish-grams > .split { margin-top: 8px; }
 
 .dish-form .hint { margin: 10px 2px 0; }
 
