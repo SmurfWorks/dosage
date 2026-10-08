@@ -944,7 +944,6 @@ function syncViewLayer() {
   logDialog.toggleAttribute('inert', viewIsOpen(logAddDialog) && !logAddDialog.classList.contains('is-leaving'))
   logOpen.setAttribute('aria-expanded', String(viewIsOpen(logDialog)))
   document.querySelector('#settings-open')?.setAttribute('aria-expanded', String(viewIsOpen(settingsView())))
-  paintModalStatusBar()
 }
 
 function viewUnder(view: HTMLElement): HTMLElement {
@@ -1991,11 +1990,22 @@ function runningAsApp(): boolean {
   )
 }
 
-function installCopy(): string {
+function appleHandheld(): boolean {
   const ua = navigator.userAgent
-  if (/iphone|ipad|ipod/i.test(ua)) return 'To install, tap Share, then Add to Home Screen.'
+  if (/iphone|ipad|ipod/i.test(ua)) return true
   const safari = /safari/i.test(ua) && !/chrome|chromium|android|crios|fxios|edg/i.test(ua)
-  if (safari) return 'To install, choose File, then Add to Dock.'
+  return safari && navigator.maxTouchPoints > 1
+}
+
+function desktopSafari(): boolean {
+  const ua = navigator.userAgent
+  const safari = /safari/i.test(ua) && !/chrome|chromium|android|crios|fxios|edg/i.test(ua)
+  return safari && !appleHandheld()
+}
+
+function installCopy(): string {
+  if (appleHandheld()) return 'To install, tap Share, then Add to Home Screen.'
+  if (desktopSafari()) return 'To install, choose File, then Add to Dock.'
   return 'Install this calculator on your home screen.'
 }
 
@@ -2004,8 +2014,7 @@ function showInstall() {
     installEl.hidden = true
     return
   }
-  const ua = navigator.userAgent
-  const manual = /iphone|ipad|ipod/i.test(ua) || (/safari/i.test(ua) && !/chrome|chromium|android|crios|fxios|edg/i.test(ua))
+  const manual = appleHandheld() || desktopSafari()
   installText.textContent = installCopy()
   installButton.hidden = manual
   installEl.hidden = false
@@ -2098,13 +2107,6 @@ for (const button of meridiemButtons) {
 }
 
 const settingsDialog = document.querySelector<HTMLElement>('#settings')!
-const themeColor = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
-
-function paintModalStatusBar() {
-  const open = pageViews().some((view) => viewIsOpen(view))
-  themeColor?.setAttribute('content', open ? '#efe8dc' : '#000000')
-}
-
 document.querySelector<HTMLButtonElement>('#settings-open')!.addEventListener('click', () => presentView(settingsDialog))
 document.querySelector<HTMLButtonElement>('#settings-close')!.addEventListener('click', () => dismissView(settingsDialog))
 

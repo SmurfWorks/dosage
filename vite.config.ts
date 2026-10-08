@@ -19,7 +19,7 @@ export default defineConfig({
         short_name: 'Dosage',
         description:
           'Personal calculator for carbohydrate and insulin doses from your glucose reading.',
-        theme_color: '#000000',
+        theme_color: '#efe8dc',
         background_color: '#efe8dc',
         display: 'standalone',
         orientation: 'portrait',
