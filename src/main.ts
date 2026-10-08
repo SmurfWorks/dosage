@@ -1290,6 +1290,21 @@ paintVisualViewport()
 window.visualViewport?.addEventListener('resize', paintVisualViewport)
 window.visualViewport?.addEventListener('scroll', paintVisualViewport)
 
+function stopInstalledAppleZoom() {
+  const appleNavigator = navigator as Navigator & { standalone?: boolean }
+  if (appleNavigator.standalone !== true) return
+  const viewport = document.querySelector('meta[name="viewport"]')
+  if (viewport instanceof HTMLMetaElement) {
+    viewport.content = 'width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover'
+  }
+  const blockGesture = (event: Event) => event.preventDefault()
+  for (const name of ['gesturestart', 'gesturechange', 'gestureend']) {
+    document.addEventListener(name, blockGesture, { passive: false })
+  }
+}
+
+stopInstalledAppleZoom()
+
 const saveIslands = document.querySelectorAll<HTMLElement>('.log-save')
 
 function coveredByIsland(island: HTMLElement): number {
@@ -1959,6 +1974,19 @@ for (const button of meridiemButtons) {
 }
 
 const settingsDialog = document.querySelector<HTMLDialogElement>('#settings')!
+const themeColor = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]')
+const fullscreenModals = [logDialog, settingsDialog, logAddDialog]
+
+function paintModalStatusBar() {
+  const open = fullscreenModals.some((dialog) => dialog.open)
+  themeColor?.setAttribute('content', open ? '#efe8dc' : '#000000')
+}
+
+const modalStatusObserver = new MutationObserver(paintModalStatusBar)
+for (const dialog of fullscreenModals) {
+  modalStatusObserver.observe(dialog, { attributes: true, attributeFilter: ['open'] })
+}
+
 document.querySelector<HTMLButtonElement>('#settings-open')!.addEventListener('click', () => settingsDialog.showModal())
 document.querySelector<HTMLButtonElement>('#settings-close')!.addEventListener('click', () => settingsDialog.close())
 closeOnBackdrop(settingsDialog)
