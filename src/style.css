@@ -909,7 +909,67 @@ input::placeholder {
   stroke-linejoin: round;
 }
 
-.dishes-hint { margin: 4px 2px 0; }
+
+.dish-finder { margin-top: 4px; }
+
+.dish-finder[hidden],
+.dish-form-open[hidden],
+.dish-form-actions > [hidden] { display: none; }
+
+.dish-search { margin-top: 0; }
+
+.dish-search svg {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+
+#dish-search {
+  width: 100%;
+  min-width: 0;
+  padding: 12px 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 1.05rem;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+#dish-search::-webkit-search-cancel-button { -webkit-appearance: none; }
+
+.dish-finder .dishes-hint { margin-top: 8px; }
+
+.dish-form-open {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  margin-top: 18px;
+  background: var(--teal-soft);
+  color: var(--teal);
+}
+
+.dish-form-open span {
+  font-size: 1.3rem;
+  line-height: 1;
+}
+
+.dish-form-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  margin-top: 4px;
+}
+
+.dish-form-actions #dish-add { flex: 1; }
 
 .dish-list {
   display: grid;
@@ -963,7 +1023,7 @@ input::placeholder {
 .dish .log-remove { flex: none; }
 
 .dish-empty {
-  margin: 16px 2px 0;
+  margin: 14px 2px 0;
   color: var(--muted);
 }
 
@@ -982,7 +1042,6 @@ input::placeholder {
 
 .dish-form .hint { margin: 10px 2px 0; }
 
-.dish-form button[type="submit"] { width: 100%; margin-top: 4px; }
 
 .fibre[hidden] { display: none; }
 

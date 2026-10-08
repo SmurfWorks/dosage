@@ -3,16 +3,43 @@ export type Dish = {
   name: string
   carbsGrams: number
   fibreGrams: number
+  /** How many times the dish has been picked, which ranks it in the list. */
+  uses: number
 }
 
 export const DISH_NAME_MAX = 60
 export const DISH_GRAMS_MAX = 500
+export const DISH_LIST_LIMIT = 3
 
 const DISHES_KEY = 'insulin-calculator.dishes.v1'
 
-export function createDish(name: string, carbsGrams: number, fibreGrams: number): Dish | null {
-  const dish = { id: crypto.randomUUID(), name: name.trim(), carbsGrams, fibreGrams }
+export function createDish(name: string, carbsGrams: number, fibreGrams: number, uses = 0): Dish | null {
+  const dish = { id: crypto.randomUUID(), name: name.trim(), carbsGrams, fibreGrams, uses }
   return readDish(dish)
+}
+
+/** Adds a dish, replacing one with the same name but keeping how often it was picked. */
+export function upsertDish(dishes: Dish[], dish: Dish): Dish[] {
+  const key = dish.name.toLowerCase()
+  const existing = dishes.find((item) => item.name.toLowerCase() === key)
+  const others = dishes.filter((item) => item !== existing)
+  return sortDishes([...others, existing ? { ...dish, uses: existing.uses } : dish])
+}
+
+export function recordDishUse(dishes: Dish[], id: string): Dish[] {
+  return dishes.map((dish) => (dish.id === id ? { ...dish, uses: dish.uses + 1 } : dish))
+}
+
+/** The most-picked dishes whose name holds every word of the query. */
+export function findDishes(dishes: Dish[], query: string, limit = DISH_LIST_LIMIT): Dish[] {
+  const words = query.toLowerCase().split(/\s+/).filter(Boolean)
+  return dishes
+    .filter((dish) => {
+      const name = dish.name.toLowerCase()
+      return words.every((word) => name.includes(word))
+    })
+    .sort((a, b) => b.uses - a.uses || a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
+    .slice(0, limit)
 }
 
 export function sortDishes(dishes: Dish[]): Dish[] {
@@ -62,7 +89,10 @@ function readDish(value: unknown): Dish | null {
   const carbsGrams = readGrams(item.carbsGrams)
   const fibreGrams = readGrams(item.fibreGrams)
   if (carbsGrams === null || fibreGrams === null) return null
-  return { id: item.id, name, carbsGrams, fibreGrams }
+  // Dishes saved before picks were counted have no count.
+  const uses = item.uses === undefined ? 0 : item.uses
+  if (typeof uses !== 'number' || !Number.isInteger(uses) || uses < 0) return null
+  return { id: item.id, name, carbsGrams, fibreGrams, uses }
 }
 
 function readGrams(value: unknown): number | null {

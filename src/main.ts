@@ -20,9 +20,12 @@ import { dayGraphSvg } from './day-graph'
 import {
   createDish,
   DISH_GRAMS_MAX,
+  findDishes,
   formatDishGrams,
   loadDishes,
+  recordDishUse,
   saveDishes,
+  upsertDish,
   type Dish,
 } from './dishes'
 import { describeDose } from './format'
@@ -115,6 +118,11 @@ const dishCarbs = document.querySelector<HTMLInputElement>('#dish-carbs')!
 const dishFibre = document.querySelector<HTMLInputElement>('#dish-fibre')!
 const dishFibreWrap = document.querySelector<HTMLElement>('#dish-fibre-wrap')!
 const dishError = document.querySelector<HTMLElement>('#dish-error')!
+const dishFinder = document.querySelector<HTMLElement>('#dish-finder')!
+const dishSearch = document.querySelector<HTMLInputElement>('#dish-search')!
+const dishFormOpen = document.querySelector<HTMLButtonElement>('#dish-form-open')!
+const dishFormCancel = document.querySelector<HTMLButtonElement>('#dish-form-cancel')!
+const dishNetCarbs = document.querySelector<HTMLElement>('#dish-net-carbs')!
 
 /** The form a picked dish fills in, and the screen Dishes slides over. */
 type DishTarget = { view: HTMLElement; carbs: HTMLInputElement; fibre: HTMLInputElement; include: HTMLInputElement }
@@ -380,6 +388,7 @@ function paintFibre() {
   fibreWrap.hidden = !showFibre
   addFibreWrap.hidden = !showFibre
   dishFibreWrap.hidden = !showFibre
+  paintDishNetCarbs()
   paintNetCarbs(netCarbsEl, readCarbs(), readFibre())
   paintNetCarbs(addNetCarbs, readOptionalAmount(addCarbs, 500) ?? 0, showFibre ? readOptionalAmount(addFibre, 500) ?? 0 : 0)
 }
@@ -1312,16 +1321,39 @@ document.querySelector('#fibre-up-10')!.addEventListener('click', () => stepFibr
 document.querySelector('#fibre-down-1')!.addEventListener('click', () => stepFibre(-1))
 document.querySelector('#fibre-up-1')!.addEventListener('click', () => stepFibre(1))
 
+/** Whether Add a dish is open while there are dishes; with none, it is always open. */
+let dishFormShown = false
+
 function paintDishes() {
   const dishes = loadDishes()
-  dishEmpty.hidden = dishes.length > 0
-  dishList.hidden = dishes.length === 0
-  dishList.innerHTML = dishes
+  const query = dishSearch.value.trim()
+  const matches = findDishes(dishes, query)
+  dishFinder.hidden = dishes.length === 0
+  dishList.hidden = matches.length === 0
+  dishList.innerHTML = matches
     .map(
       (dish) =>
         `<li class="dish"><button type="button" class="dish-pick" data-dish="${escapeHtml(dish.id)}"><span class="dish-name">${escapeHtml(dish.name)}</span><span class="dish-grams-text">${escapeHtml(formatDishGrams(dish))}</span></button><button type="button" class="log-remove" data-dish-remove="${escapeHtml(dish.id)}" aria-label="Remove ${escapeHtml(dish.name)}">×</button></li>`,
     )
     .join('')
+  dishEmpty.hidden = matches.length > 0
+  dishEmpty.textContent =
+    dishes.length === 0 ? 'No dishes yet. Add the ones you eat often below.' : `No dishes match “${query}”.`
+  const formShown = dishes.length === 0 || dishFormShown
+  dishForm.hidden = !formShown
+  dishFormOpen.hidden = formShown
+  dishFormOpen.setAttribute('aria-expanded', String(formShown))
+  dishFormCancel.hidden = dishes.length === 0
+}
+
+function paintDishNetCarbs() {
+  paintNetCarbs(dishNetCarbs, readDishGrams(dishCarbs) ?? 0, showFibre ? (readDishGrams(dishFibre) ?? 0) : 0)
+}
+
+function showDishForm(shown: boolean) {
+  dishFormShown = shown
+  dishError.textContent = ''
+  paintDishes()
 }
 
 function gramsText(grams: number): string {
@@ -1335,14 +1367,16 @@ function openDishes(target: DishTarget) {
   dishName.value = ''
   dishCarbs.value = target.include.checked ? gramsText(carbs) : ''
   dishFibre.value = target.include.checked ? gramsText(fibre) : ''
-  dishError.textContent = ''
-  paintDishes()
+  dishSearch.value = ''
+  showDishForm(false)
+  paintDishNetCarbs()
   presentView(dishesView)
   sizeStepInputs()
 }
 
 function pickDish(dish: Dish) {
   const { carbs, fibre, include } = dishTarget
+  saveDishes(recordDishUse(loadDishes(), dish.id))
   carbs.value = String(dish.carbsGrams)
   fibre.value = String(dish.fibreGrams)
   if (!include.checked) {
@@ -1363,6 +1397,22 @@ function readDishGrams(input: HTMLInputElement): number | null {
 dishesOpen.addEventListener('click', () => openDishes(homeDishTarget))
 addDishesOpen.addEventListener('click', () => openDishes(addDishTarget))
 dishForm.addEventListener('click', stepFromButton)
+dishForm.addEventListener('input', paintDishNetCarbs)
+dishSearch.addEventListener('input', paintDishes)
+dishSearch.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') dishSearch.blur()
+})
+
+dishFormOpen.addEventListener('click', () => {
+  // A search that found nothing is most likely the name of the dish to add.
+  if (dishList.hidden && dishSearch.value.trim()) dishName.value = dishSearch.value.trim()
+  showDishForm(true)
+  dishName.focus()
+})
+dishFormCancel.addEventListener('click', () => {
+  showDishForm(false)
+  dishFormOpen.focus()
+})
 document.querySelector('#dishes-close')!.addEventListener('click', () => dismissView(dishesView))
 
 dishList.addEventListener('click', (event) => {
@@ -1398,13 +1448,13 @@ dishForm.addEventListener('submit', (event) => {
     dishError.textContent = 'That dish could not be saved.'
     return
   }
-  const others = loadDishes().filter((item) => item.name.toLowerCase() !== dish.name.toLowerCase())
-  saveDishes([...others, dish])
-  dishError.textContent = ''
+  saveDishes(upsertDish(loadDishes(), dish))
   dishName.value = ''
   dishCarbs.value = ''
   dishFibre.value = ''
-  paintDishes()
+  dishSearch.value = ''
+  paintDishNetCarbs()
+  showDishForm(false)
   dishName.blur()
   dishCarbs.blur()
   dishFibre.blur()

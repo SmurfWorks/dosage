@@ -45,7 +45,7 @@ function entry(overrides: Partial<LogEntry> = {}): LogEntry {
 }
 
 function dish(overrides: Partial<Dish> = {}): Dish {
-  return { id: 'd1', name: 'Porridge', carbsGrams: 45, fibreGrams: 6, ...overrides }
+  return { id: 'd1', name: 'Porridge', carbsGrams: 45, fibreGrams: 6, uses: 3, ...overrides }
 }
 
 describe('dosage backups', () => {
