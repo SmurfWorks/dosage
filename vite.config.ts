@@ -16,7 +16,7 @@ export default defineConfig({
       includeAssets: ['favicon.svg', 'icons/*.png'],
       manifest: {
         name: 'Dosage Helper',
-        short_name: 'Dosage',
+        short_name: 'Dosage Helper',
         description:
           'Personal calculator for carbohydrate and insulin doses from your glucose reading.',
         theme_color: '#efe8dc',
