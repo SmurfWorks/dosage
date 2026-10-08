@@ -413,6 +413,7 @@ dialog::backdrop {
 
 #about-close,
 #settings-close,
+#dishes-close,
 #log-close,
 #log-add-open {
   flex: none;
@@ -858,7 +859,7 @@ input::placeholder {
   outline-offset: 2px;
 }
 
-.card.is-skipped > :not(.include-check) {
+.card.is-skipped > :not(.include-check, .carbs-head) {
   display: none;
 }
 
@@ -879,6 +880,117 @@ input::placeholder {
   gap: 10px;
   margin-top: 10px;
 }
+
+.carbs-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dishes-open {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 36px;
+  padding: 6px 14px 6px 10px;
+  background: var(--teal-soft);
+  color: var(--teal);
+  font-size: 0.92rem;
+}
+
+.dishes-open svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.dishes-hint { margin: 4px 2px 0; }
+
+.dish-list {
+  display: grid;
+  gap: 10px;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.dish-list[hidden],
+.dish-empty[hidden] { display: none; }
+
+.dish {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px 6px 6px;
+  background: var(--card);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 18px;
+  box-shadow: var(--shadow);
+}
+
+.dish-pick {
+  display: grid;
+  flex: 1;
+  gap: 2px;
+  min-width: 0;
+  padding: 10px 12px;
+  border-radius: 14px;
+  background: transparent;
+  color: var(--ink);
+  text-align: left;
+}
+
+.dish-pick:active { background: var(--teal-soft); }
+
+.dish-name {
+  overflow: hidden;
+  font-size: 1.05rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dish-grams-text {
+  color: var(--muted);
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+.dish .log-remove { flex: none; }
+
+.dish-empty {
+  margin: 16px 2px 0;
+  color: var(--muted);
+}
+
+.dish-form h3 {
+  margin: 0 0 14px;
+  font-size: 1.1rem;
+}
+
+.dish-form #dish-name { font-size: 1.1rem; }
+
+.dish-grams {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.dish-grams > [hidden] { display: none; }
+
+.dish-unit {
+  color: var(--muted);
+  font-weight: 650;
+}
+
+.dish-form .hint { margin: 10px 2px 0; }
+
+.dish-form button[type="submit"] { width: 100%; margin-top: 4px; }
 
 .fibre[hidden] { display: none; }
 
@@ -1803,7 +1915,9 @@ html.is-sliding .app-view.is-open { overflow-y: hidden; }
   .net-carbs[hidden] { transition: none; }
 }
 
-.settings-grid .hint {
+.settings-grid .hint,
+.dishes-hint,
+.dish-form .hint {
   margin: 6px 2px 0;
   color: var(--muted);
   font-size: 0.85rem;

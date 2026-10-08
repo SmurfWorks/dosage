@@ -101,10 +101,19 @@
         </section>
 
         <section id="carbs-wrap" class="card">
-          <label class="include-check" for="include-carbs">
-            <input id="include-carbs" type="checkbox" checked />
-            Carbs
-          </label>
+          <div class="carbs-head">
+            <label class="include-check" for="include-carbs">
+              <input id="include-carbs" type="checkbox" checked />
+              Carbs
+            </label>
+            <button id="dishes-open" class="dishes-open" type="button" aria-expanded="false">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M3.5 12.5h17a8.5 8.5 0 0 1-17 0Z"></path>
+                <path d="M9 8.5c0-1.5 1.5-1.5 1.5-3M13.5 8.5c0-1.5 1.5-1.5 1.5-3"></path>
+              </svg>
+              Dishes
+            </button>
+          </div>
           <div class="split carb-split">
             <div class="step-pill">
               <button id="carbs-down-10" type="button" aria-label="Lower carbohydrate by 10 grams">−</button>
@@ -630,12 +639,55 @@
     </form>
     </section>
 
+    <section id="dishes" class="app-view" hidden tabindex="-1" aria-labelledby="dishes-title">
+      <div class="log-panel settings-panel">
+        <div class="panel-actions">
+          <button id="dishes-close" type="button" aria-label="Close">×</button>
+        </div>
+        <div class="about-head">
+          <h2 id="dishes-title">Dishes</h2>
+        </div>
+        <div class="log-body">
+          <p class="hint dishes-hint">Tap a dish to fill in its carbs and fibre.</p>
+          <ul id="dish-list" class="dish-list"></ul>
+          <p id="dish-empty" class="dish-empty">No dishes yet. Add the ones you eat often below.</p>
+          <form id="dish-form" class="card dish-form" novalidate>
+            <h3>Add a dish</h3>
+            <label for="dish-name">Name</label>
+            <div class="field">
+              <input id="dish-name" type="text" maxlength="60" autocomplete="off" enterkeyhint="next"
+                placeholder="Porridge with banana" />
+            </div>
+            <div class="dish-grams">
+              <div>
+                <label for="dish-carbs">Carbs</label>
+                <div class="field">
+                  <input id="dish-carbs" type="text" inputmode="decimal" autocomplete="off" placeholder="0" />
+                  <span class="dish-unit">g</span>
+                </div>
+              </div>
+              <div id="dish-fibre-wrap">
+                <label for="dish-fibre">Fibre</label>
+                <div class="field">
+                  <input id="dish-fibre" type="text" inputmode="decimal" autocomplete="off" placeholder="0" />
+                  <span class="dish-unit">g</span>
+                </div>
+              </div>
+            </div>
+            <p class="hint">Saving a name you already have updates that dish.</p>
+            <p id="dish-error" class="save-note is-error" aria-live="polite"></p>
+            <button id="dish-add" type="submit">Add dish</button>
+          </form>
+        </div>
+      </div>
+    </section>
+
   </div>
 
   <dialog id="restore-confirm" aria-labelledby="restore-confirm-title">
     <div class="about-panel">
       <h2 id="restore-confirm-title">Restore this backup?</h2>
-      <p id="restore-confirm-text">This replaces the routine and log saved on this device.</p>
+      <p id="restore-confirm-text">This replaces the routine, log and dishes saved on this device.</p>
       <div class="confirm-actions">
         <button id="restore-cancel" class="secondary" type="button">Cancel</button>
         <button id="restore-confirm-button" type="button">Restore</button>
@@ -646,7 +698,7 @@
   <dialog id="delete-confirm" aria-labelledby="delete-confirm-title">
     <div class="about-panel">
       <h2 id="delete-confirm-title">Delete all data?</h2>
-      <p>This removes all log data and resets your routine settings.</p>
+      <p>This removes all log data and dishes, and resets your routine settings.</p>
       <div class="confirm-actions">
         <button id="delete-cancel" class="secondary" type="button">Cancel</button>
         <button id="delete-confirm-button" class="danger" type="button">Delete all data</button>

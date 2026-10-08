@@ -17,6 +17,14 @@ import {
 } from './basal'
 import { calculate, DEFAULT_SETTINGS, type Calculation, type Settings } from './calculator'
 import { dayGraphSvg } from './day-graph'
+import {
+  createDish,
+  DISH_GRAMS_MAX,
+  formatDishGrams,
+  loadDishes,
+  saveDishes,
+  type Dish,
+} from './dishes'
 import { describeDose } from './format'
 import {
   browserTimeZone,
@@ -96,6 +104,16 @@ const logList = document.querySelector<HTMLElement>('#log-list')!
 const logAddOpen = document.querySelector<HTMLButtonElement>('#log-add-open')!
 const logAddClose = document.querySelector<HTMLButtonElement>('#log-add-close')!
 const logAddDialog = document.querySelector<HTMLElement>('#log-add-dialog')!
+const dishesView = document.querySelector<HTMLElement>('#dishes')!
+const dishesOpen = document.querySelector<HTMLButtonElement>('#dishes-open')!
+const dishList = document.querySelector<HTMLUListElement>('#dish-list')!
+const dishEmpty = document.querySelector<HTMLElement>('#dish-empty')!
+const dishForm = document.querySelector<HTMLFormElement>('#dish-form')!
+const dishName = document.querySelector<HTMLInputElement>('#dish-name')!
+const dishCarbs = document.querySelector<HTMLInputElement>('#dish-carbs')!
+const dishFibre = document.querySelector<HTMLInputElement>('#dish-fibre')!
+const dishFibreWrap = document.querySelector<HTMLElement>('#dish-fibre-wrap')!
+const dishError = document.querySelector<HTMLElement>('#dish-error')!
 const logAddForm = document.querySelector<HTMLFormElement>('#log-add')!
 const logAddButton = document.querySelector<HTMLButtonElement>('#log-add-button')!
 const logAddDate = document.querySelector<HTMLElement>('#log-add-date')!
@@ -357,6 +375,7 @@ function paintFibre() {
   showFibreInput.checked = showFibre
   fibreWrap.hidden = !showFibre
   addFibreWrap.hidden = !showFibre
+  dishFibreWrap.hidden = !showFibre
   paintNetCarbs(netCarbsEl, readCarbs(), readFibre())
   paintNetCarbs(addNetCarbs, readOptionalAmount(addCarbs, 500) ?? 0, showFibre ? readOptionalAmount(addFibre, 500) ?? 0 : 0)
 }
@@ -919,7 +938,7 @@ function closeOnBackdrop(dialog: HTMLDialogElement) {
 }
 
 function pageViews(): HTMLElement[] {
-  return ['#log-add-dialog', '#log', '#settings'].map(
+  return ['#log-add-dialog', '#log', '#settings', '#dishes'].map(
     (id) => document.querySelector<HTMLElement>(id)!,
   )
 }
@@ -944,6 +963,7 @@ function syncViewLayer() {
   logDialog.toggleAttribute('inert', viewIsOpen(logAddDialog) && !logAddDialog.classList.contains('is-leaving'))
   logOpen.setAttribute('aria-expanded', String(viewIsOpen(logDialog)))
   document.querySelector('#settings-open')?.setAttribute('aria-expanded', String(viewIsOpen(settingsView())))
+  dishesOpen.setAttribute('aria-expanded', String(viewIsOpen(dishesView)))
 }
 
 const sliding = new Map<HTMLElement, () => void>()
@@ -1279,6 +1299,97 @@ document.querySelector('#fibre-up-10')!.addEventListener('click', () => stepFibr
 document.querySelector('#fibre-down-1')!.addEventListener('click', () => stepFibre(-1))
 document.querySelector('#fibre-up-1')!.addEventListener('click', () => stepFibre(1))
 
+function paintDishes() {
+  const dishes = loadDishes()
+  dishEmpty.hidden = dishes.length > 0
+  dishList.hidden = dishes.length === 0
+  dishList.innerHTML = dishes
+    .map(
+      (dish) =>
+        `<li class="dish"><button type="button" class="dish-pick" data-dish="${escapeHtml(dish.id)}"><span class="dish-name">${escapeHtml(dish.name)}</span><span class="dish-grams-text">${escapeHtml(formatDishGrams(dish))}</span></button><button type="button" class="log-remove" data-dish-remove="${escapeHtml(dish.id)}" aria-label="Remove ${escapeHtml(dish.name)}">×</button></li>`,
+    )
+    .join('')
+}
+
+function gramsText(grams: number): string {
+  return grams > 0 ? String(Number(grams.toFixed(2))) : ''
+}
+
+function openDishes() {
+  dishName.value = ''
+  dishCarbs.value = gramsText(readCarbs())
+  dishFibre.value = gramsText(readFibre())
+  dishError.textContent = ''
+  paintDishes()
+  presentView(dishesView)
+}
+
+function pickDish(dish: Dish) {
+  carbsInput.value = String(dish.carbsGrams)
+  fibreInput.value = String(dish.fibreGrams)
+  if (!includeCarbsInput.checked) {
+    includeCarbsInput.checked = true
+    includeCarbsInput.dispatchEvent(new Event('change', { bubbles: true }))
+  }
+  carbsInput.dispatchEvent(new Event('input', { bubbles: true }))
+  fibreInput.dispatchEvent(new Event('input', { bubbles: true }))
+  dismissView(dishesView)
+}
+
+function readDishGrams(input: HTMLInputElement): number | null {
+  if (!input.value.trim()) return 0
+  const grams = parseDecimal(input.value)
+  return grams === null || grams > DISH_GRAMS_MAX ? null : grams
+}
+
+dishesOpen.addEventListener('click', openDishes)
+document.querySelector('#dishes-close')!.addEventListener('click', () => dismissView(dishesView))
+
+dishList.addEventListener('click', (event) => {
+  const target = event.target as Element
+  const remove = target.closest<HTMLButtonElement>('[data-dish-remove]')
+  if (remove) {
+    saveDishes(loadDishes().filter((dish) => dish.id !== remove.dataset.dishRemove))
+    paintDishes()
+    return
+  }
+  const pick = target.closest<HTMLButtonElement>('[data-dish]')
+  const dish = loadDishes().find((item) => item.id === pick?.dataset.dish)
+  if (dish) pickDish(dish)
+})
+
+dishForm.addEventListener('submit', (event) => {
+  event.preventDefault()
+  const name = dishName.value.trim()
+  const carbs = readDishGrams(dishCarbs)
+  const fibre = showFibre ? readDishGrams(dishFibre) : 0
+  if (!name) {
+    dishError.textContent = 'Give the dish a name.'
+    dishName.focus()
+    return
+  }
+  if (carbs === null || fibre === null) {
+    dishError.textContent = `Enter grams from 0 to ${DISH_GRAMS_MAX}.`
+    ;(carbs === null ? dishCarbs : dishFibre).focus()
+    return
+  }
+  const dish = createDish(name, carbs, fibre)
+  if (!dish) {
+    dishError.textContent = 'That dish could not be saved.'
+    return
+  }
+  const others = loadDishes().filter((item) => item.name.toLowerCase() !== dish.name.toLowerCase())
+  saveDishes([...others, dish])
+  dishError.textContent = ''
+  dishName.value = ''
+  dishCarbs.value = ''
+  dishFibre.value = ''
+  paintDishes()
+  dishName.blur()
+  dishCarbs.blur()
+  dishFibre.blur()
+})
+
 carbsInput.addEventListener('input', () => {
   glucoseFromLog = false
   render()
@@ -1318,7 +1429,7 @@ backupButton.addEventListener('click', () => {
   }
   const routine = readRoutine()
   const when = new Date()
-  const backup = createBackup(routine, loadLog(), when)
+  const backup = createBackup(routine, loadLog(), loadDishes(), when)
   const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
   const link = document.createElement('a')
@@ -1357,7 +1468,9 @@ restoreFile.addEventListener('change', async () => {
   pendingBackup = result.backup
   const count = result.backup.log.length
   const entries = count === 1 ? '1 log entry' : `${count} log entries`
-  restoreConfirmText.textContent = `This replaces the routine and ${entries} saved on this device.`
+  const dishCount = result.backup.dishes.length
+  const dishes = dishCount === 1 ? '1 dish' : `${dishCount} dishes`
+  restoreConfirmText.textContent = `This replaces the routine, ${entries} and ${dishes} saved on this device.`
   restoreConfirm.showModal()
 })
 
@@ -1372,9 +1485,11 @@ restoreConfirmButton.addEventListener('click', () => {
   if (!backup) return
   applyRoutine(backup.routine)
   saveLog(backup.log)
+  saveDishes(backup.dishes)
+  paintDishes()
   render()
   if (viewIsOpen(logDialog)) paintLog(backup.log)
-  showToast('Restored your routine and log.')
+  showToast('Restored your routine, log and dishes.')
 })
 
 deleteDataButton.addEventListener('click', () => deleteConfirm.showModal())
@@ -1391,6 +1506,8 @@ deleteConfirmButton.addEventListener('click', () => {
   applySettings({ ...DEFAULT_SETTINGS })
   saveSettings()
   saveLog([])
+  saveDishes([])
+  paintDishes()
   carbsInput.value = '0'
   fibreInput.value = '0'
   entryNote.value = ''

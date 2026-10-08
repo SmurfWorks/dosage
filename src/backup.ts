@@ -1,4 +1,5 @@
 import { parseBasals, type Basal } from './basal'
+import { parseDishes, type Dish } from './dishes'
 import type { Settings } from './calculator'
 import { parseStoredLog, type LogEntry } from './log'
 import type { GlucoseUnit } from './units'
@@ -17,6 +18,7 @@ export type Backup = {
   exportedAt: string
   routine: Routine
   log: LogEntry[]
+  dishes: Dish[]
 }
 
 export type BackupResult = { ok: true; backup: Backup } | { ok: false; message: string }
@@ -24,13 +26,14 @@ export type BackupResult = { ok: true; backup: Backup } | { ok: false; message: 
 const UNREADABLE = 'That file is not a Dosage backup.'
 const NEWER = 'That backup is from a newer version of Dosage.'
 
-export function createBackup(routine: Routine, log: LogEntry[], exportedAt = new Date()): Backup {
+export function createBackup(routine: Routine, log: LogEntry[], dishes: Dish[], exportedAt = new Date()): Backup {
   return {
     app: 'dosage',
     version: BACKUP_VERSION,
     exportedAt: exportedAt.toISOString(),
     routine,
     log,
+    dishes,
   }
 }
 
@@ -43,7 +46,14 @@ export function backupFilename(when = new Date()): string {
 
 export function parseBackup(value: unknown): BackupResult {
   if (!value || typeof value !== 'object') return { ok: false, message: UNREADABLE }
-  const file = value as { app?: unknown; version?: unknown; exportedAt?: unknown; routine?: unknown; log?: unknown }
+  const file = value as {
+    app?: unknown
+    version?: unknown
+    exportedAt?: unknown
+    routine?: unknown
+    log?: unknown
+    dishes?: unknown
+  }
   if (file.app !== 'dosage') return { ok: false, message: UNREADABLE }
   if (file.version !== BACKUP_VERSION) {
     return { ok: false, message: typeof file.version === 'number' && file.version > BACKUP_VERSION ? NEWER : UNREADABLE }
@@ -60,9 +70,12 @@ export function parseBackup(value: unknown): BackupResult {
     if (ids.has(entry.id)) return { ok: false, message: UNREADABLE }
     ids.add(entry.id)
   }
+  // Backups made before dishes existed have none.
+  const dishes = file.dishes === undefined ? [] : parseDishes(file.dishes)
+  if (!dishes) return { ok: false, message: UNREADABLE }
   return {
     ok: true,
-    backup: { app: 'dosage', version: BACKUP_VERSION, exportedAt: file.exportedAt, routine, log },
+    backup: { app: 'dosage', version: BACKUP_VERSION, exportedAt: file.exportedAt, routine, log, dishes },
   }
 }
 

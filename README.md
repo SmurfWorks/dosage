@@ -21,6 +21,10 @@ The insulin result stays hidden until you change the glucose, carbohydrate, or f
 
 Change the ratios in **Configure your dosage ratios**. They are stored in local storage on this device.
 
+**Dishes**, beside Carbs, keeps the dishes you eat often with their carbohydrate and fibre. Tap a dish to fill in both amounts. Add a dish with a name and its grams; the form starts with the amounts already entered, and saving a name you already have updates that dish. Remove a dish with its ×. Dishes are stored on this device.
+
+**Backup to file** saves the routine, the log, and your dishes to a JSON file, and **Restore from file** brings them back. A backup made before dishes existed restores with no dishes.
+
 **Save to log** stores the current time, the glucose, the carbohydrate, the insulin, and an optional note. **View log** opens one day at a time and shows each note. **Add an entry** in the log records a past reading, carbohydrate, insulin, and note for the day you are viewing, and you can remove an entry. After a save from the calculator, and the next time you open the app, glucose starts at the target from the newest log entry.
 
 This applies the ratios you enter. It does not replace a diabetes care plan.

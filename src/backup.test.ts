@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { backupFilename, createBackup, parseBackup, type Routine } from './backup'
+import type { Dish } from './dishes'
 import type { LogEntry } from './log'
 
 function routine(overrides: Partial<Routine> = {}): Routine {
@@ -43,16 +44,22 @@ function entry(overrides: Partial<LogEntry> = {}): LogEntry {
   }
 }
 
+function dish(overrides: Partial<Dish> = {}): Dish {
+  return { id: 'd1', name: 'Porridge', carbsGrams: 45, fibreGrams: 6, ...overrides }
+}
+
 describe('dosage backups', () => {
   const when = new Date('2026-10-07T22:15:00.000Z')
 
-  it('round-trips the routine and log', () => {
-    const backup = createBackup(routine(), [entry(), entry({ id: '2', carbsGrams: null, note: '' })], when)
+  it('round-trips the routine, log and dishes', () => {
+    const dishes = [dish({ id: 'd2', name: 'Apple', fibreGrams: 0 }), dish()]
+    const backup = createBackup(routine(), [entry(), entry({ id: '2', carbsGrams: null, note: '' })], dishes, when)
     const parsed = parseBackup(JSON.parse(JSON.stringify(backup)))
     expect(parsed.ok).toBe(true)
     if (!parsed.ok) return
     expect(parsed.backup.routine).toEqual(routine())
     expect(parsed.backup.log).toEqual(backup.log)
+    expect(parsed.backup.dishes).toEqual(dishes)
     expect(parsed.backup.exportedAt).toBe(when.toISOString())
   })
 
@@ -73,7 +80,7 @@ describe('dosage backups', () => {
   })
 
   it('rejects a routine the app cannot store', () => {
-    const backup = createBackup(routine(), [], when)
+    const backup = createBackup(routine(), [], [], when)
     expect(parseBackup({ ...backup, routine: { ...backup.routine, insulinStep: 2 } }).ok).toBe(false)
     expect(parseBackup({ ...backup, routine: { ...backup.routine, glucoseUnit: 'mg' } }).ok).toBe(false)
     expect(parseBackup({ ...backup, routine: { ...backup.routine, showFibre: 'yes' } }).ok).toBe(false)
@@ -82,8 +89,20 @@ describe('dosage backups', () => {
   })
 
   it('rejects a log entry that cannot be read, or a repeated id', () => {
-    const backup = createBackup(routine({ basals: [] }), [entry()], when)
+    const backup = createBackup(routine({ basals: [] }), [entry()], [], when)
     expect(parseBackup({ ...backup, log: [{ ...entry(), at: 'not-a-time' }] }).ok).toBe(false)
     expect(parseBackup({ ...backup, log: [entry(), entry()] }).ok).toBe(false)
+  })
+
+  it('restores a backup made before dishes with no dishes', () => {
+    const { dishes: _dishes, ...older } = createBackup(routine(), [entry()], [dish()], when)
+    const parsed = parseBackup(JSON.parse(JSON.stringify(older)))
+    expect(parsed.ok && parsed.backup.dishes).toEqual([])
+  })
+
+  it('rejects a dish that cannot be read', () => {
+    const backup = createBackup(routine(), [], [dish()], when)
+    expect(parseBackup({ ...backup, dishes: [{ ...dish(), carbsGrams: -5 }] }).ok).toBe(false)
+    expect(parseBackup({ ...backup, dishes: 'porridge' }).ok).toBe(false)
   })
 })
