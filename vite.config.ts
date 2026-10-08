@@ -15,8 +15,8 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'icons/*.png'],
       manifest: {
-        name: 'Insulin Calculator',
-        short_name: 'Insulin',
+        name: 'Dosage Helper',
+        short_name: 'Dosage',
         description:
           'Personal calculator for carbohydrate and insulin doses from your glucose reading.',
         theme_color: '#000000',
