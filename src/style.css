@@ -1249,6 +1249,9 @@ input::placeholder {
 html:has(dialog[open]),
 html:has(.app-view.is-open) { overflow: hidden; }
 
+html.is-sliding #home,
+html.is-sliding .app-view.is-open { overflow-y: hidden; }
+
 .log-panel {
   display: flex;
   flex-direction: column;
@@ -1981,23 +1984,6 @@ button.secondary {
     position: relative;
     bottom: auto;
     margin-top: 0;
-  }
-}
-
-/* Installed on iOS, the black strip keeps the clock readable until a full-screen view covers it. */
-@supports (-webkit-touch-callout: none) {
-  @media (display-mode: standalone), (display-mode: fullscreen) {
-    body::before {
-      content: "";
-      position: fixed;
-      z-index: 4;
-      top: 0;
-      right: 0;
-      left: 0;
-      height: env(safe-area-inset-top);
-      background: #000;
-      pointer-events: none;
-    }
   }
 }
 

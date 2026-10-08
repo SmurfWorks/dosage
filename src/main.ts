@@ -946,6 +946,23 @@ function syncViewLayer() {
   document.querySelector('#settings-open')?.setAttribute('aria-expanded', String(viewIsOpen(settingsView())))
 }
 
+const sliding = new Map<HTMLElement, () => void>()
+
+function holdScrollWhileSliding(view: HTMLElement) {
+  sliding.get(view)?.()
+  const settle = (event?: TransitionEvent) => {
+    if (event && (event.target !== view || event.propertyName !== 'transform')) return
+    view.removeEventListener('transitionend', settle)
+    window.clearTimeout(timer)
+    sliding.delete(view)
+    document.documentElement.classList.toggle('is-sliding', sliding.size > 0)
+  }
+  const timer = window.setTimeout(settle, 320)
+  view.addEventListener('transitionend', settle)
+  sliding.set(view, settle)
+  document.documentElement.classList.add('is-sliding')
+}
+
 function viewUnder(view: HTMLElement): HTMLElement {
   return view === logAddDialog ? logDialog : homeView
 }
@@ -983,6 +1000,7 @@ function presentView(view: HTMLElement) {
     reveal()
     return
   }
+  holdScrollWhileSliding(view)
   requestAnimationFrame(() => {
     requestAnimationFrame(reveal)
   })
@@ -1009,6 +1027,7 @@ function dismissView(view: HTMLElement) {
   }
   view.classList.add('is-leaving')
   view.classList.remove('is-active')
+  holdScrollWhileSliding(view)
   syncViewLayer()
   const onEnd = (event: TransitionEvent) => {
     if (event.target !== view || event.propertyName !== 'transform') return
