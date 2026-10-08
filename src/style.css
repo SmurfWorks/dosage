@@ -28,6 +28,11 @@
 
 * { box-sizing: border-box; }
 
+html,
+body {
+  overscroll-behavior: none;
+}
+
 body {
   margin: 0;
   min-height: 100dvh;
@@ -143,6 +148,7 @@ dialog {
   background: var(--card);
   color: inherit;
   box-shadow: 0 24px 70px rgba(26, 36, 33, 0.22);
+  overscroll-behavior: none;
 }
 
 dialog::backdrop {
@@ -1155,7 +1161,6 @@ input::placeholder {
   margin: 0;
   border-radius: 0;
   background: var(--bg);
-  overscroll-behavior: contain;
 }
 
 html:has(dialog[open]) { overflow: hidden; }
@@ -1583,6 +1588,10 @@ html:has(dialog[open]) { overflow: hidden; }
   font-weight: 650;
 }
 
+.log-add-body {
+  overscroll-behavior: none;
+}
+
 .status-cards {
   display: grid;
   gap: 12px;
@@ -1873,7 +1882,6 @@ button.secondary {
     flex: 1 1 auto;
     min-height: 0;
     overflow: auto;
-    overscroll-behavior: contain;
     padding:
       0
       max(18px, env(safe-area-inset-right))
