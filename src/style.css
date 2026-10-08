@@ -1344,25 +1344,6 @@ input::placeholder {
   }
 }
 
-.log-save.is-covering::after {
-  content: "";
-  position: absolute;
-  pointer-events: none;
-}
-
-.log-save.is-covering::after {
-  left: 50%;
-  bottom: calc(100% - 11px);
-  width: 22px;
-  height: 22px;
-  translate: -50% 0;
-  border-radius: 50%;
-  background:
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235c675f' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") center / 14px no-repeat,
-    var(--card);
-  box-shadow: 0 4px 12px rgba(38, 32, 22, 0.16);
-}
-
 .save-note {
   min-height: 1.3em;
   margin: 8px 2px 0;
