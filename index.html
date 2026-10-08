@@ -141,11 +141,6 @@
             </label>
           </section>
 
-          <section id="target-card" class="card" aria-labelledby="target-heading" hidden>
-            <p id="target-heading" class="control-label">Calculated target</p>
-            <div id="target-detail" class="target-detail"></div>
-          </section>
-
           <section class="card">
             <details id="entry-note-details" class="add-note">
               <summary>Add note</summary>
@@ -160,6 +155,10 @@
       </main>
 
       <section class="log-save">
+        <section id="target-card" class="card" aria-labelledby="target-heading" hidden>
+          <p id="target-heading" class="control-label">Calculated target</p>
+          <div id="target-detail" class="target-detail"></div>
+        </section>
         <div class="log-actions">
           <button id="save-log" type="button">Save to log</button>
         </div>
@@ -359,6 +358,7 @@
 
     <dialog id="log-add-dialog" aria-labelledby="log-add-title">
       <form id="log-add" class="log-panel settings-panel">
+        <div class="log-add-body">
         <div class="panel-actions">
           <button id="log-add-close" type="button" aria-label="Close add entry">×</button>
         </div>
@@ -485,6 +485,18 @@
             </div>
           </section>
 
+          <section class="card">
+            <details id="add-note-details" class="add-note">
+              <summary>Add note</summary>
+              <div class="field note-field">
+                <textarea id="add-note" rows="2" maxlength="400" aria-label="Note" placeholder="Enter your note here..."></textarea>
+                <button class="note-done" type="button">Done</button>
+              </div>
+            </details>
+          </section>
+        </div>
+        </div>
+        <div class="log-save">
           <section id="add-target-card" class="card">
             <div id="add-target-fixed" hidden>
               <p id="add-target-fixed-heading" class="control-label">Maintaining target</p>
@@ -533,18 +545,6 @@
               </div>
             </div>
           </section>
-
-          <section class="card">
-            <details id="add-note-details" class="add-note">
-              <summary>Add note</summary>
-              <div class="field note-field">
-                <textarea id="add-note" rows="2" maxlength="400" aria-label="Note" placeholder="Enter your note here..."></textarea>
-                <button class="note-done" type="button">Done</button>
-              </div>
-            </details>
-          </section>
-        </div>
-        <div class="log-save">
           <p id="add-error" class="save-note is-error" aria-live="polite"></p>
           <button id="log-add-button" type="submit">Save for</button>
         </div>
@@ -579,7 +579,8 @@
           <h2 id="about-title">How it works</h2>
           <button id="about-close" type="button" aria-label="Close">×</button>
         </div>
-        <p class="help-lead">Three quick steps and you have a suggested bolus dose, worked out from your own routine.</p>
+        <p class="help-lead">A dosage calculator that logs the glucose you meant to reach.</p>
+        <p>Diabetes is different for everyone, and it changes for you as life circumstances change, or as you age. A simple log records what you did. This one records the target you intended, and that is how you judge a change to your bolus and carb ratios.</p>
 
         <ol class="help-steps">
           <li>
@@ -606,10 +607,15 @@
             </span>
             <div>
               <h3>Read your dose</h3>
-              <p><b>Insulin Dosage</b> shows the bolus that brings you closest to your target, rounded to your pen or pump.</p>
+              <p><b>Insulin Dosage</b> shows the bolus that brings you closest to your target, rounded to your pen or pump. <b>Calculated target</b> is the glucose that dose is meant to reach.</p>
             </div>
           </li>
         </ol>
+
+        <h3 class="help-heading">Where you meant to land</h3>
+        <p><b>Save to log</b> stores that target with the time, the reading, the carbs and the dose. On a past entry you can change the number if you meant a different one.</p>
+        <p>With no carbs and no bolus, the card says <b>Maintaining target</b>. Your reading sits beside the last intention, and the check-in does not set a new one.</p>
+        <p>Keep arriving above that target, and 10 g of carbs may be raising you more than your ratio says, or 1 unit of insulin lowering you less. Keep arriving below it, and the opposite is true. Change those amounts in <b>Set your routine</b>. The next dose uses the new ratios.</p>
 
         <h3 class="help-heading">The maths, at a glance</h3>
         <div class="help-maths">
@@ -638,7 +644,7 @@
             <span class="help-icon" aria-hidden="true">
               <svg viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2.5"></rect><path d="M9 8h6M9 12h6M9 16h3"></path></svg>
             </span>
-            <p><b>Save to log</b> keeps the time, reading, carbs, dose and a note. Open the log to see your day on a graph, or tap <b>+</b> to add an entry you missed.</p>
+            <p>Open the log to see your day on a graph, or tap <b>+</b> to add an entry you missed. Each entry keeps the target you were aiming for.</p>
           </li>
           <li>
             <span class="help-icon" aria-hidden="true">
@@ -654,7 +660,7 @@
           </span>
           <div>
             <h3 id="help-safety-title">A helper, alongside your care team</h3>
-            <p>Suggestions come from the routine saved on this device and work alongside your diabetes care plan. Check doses with your care team, and take extra care when you are unwell, exercising, or a number looks surprising.</p>
+            <p>Suggestions come from the routine saved on this device and work alongside your diabetes care plan. A change to your ratios is yours to make with your care team. Take extra care when you are unwell, exercising, or a number looks surprising.</p>
           </div>
         </aside>
       </div>

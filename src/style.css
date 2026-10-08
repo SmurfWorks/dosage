@@ -1049,9 +1049,42 @@ input::placeholder {
 
 .log-save {
   position: sticky;
-  bottom: max(16px, env(safe-area-inset-bottom));
+  bottom: max(12px, env(safe-area-inset-bottom));
   z-index: 5;
+  display: grid;
+  gap: 12px;
   margin-top: 22px;
+}
+
+.log-save:has(> .card:not([hidden])) {
+  padding: 14px;
+  background: var(--card);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.log-save > .card {
+  margin: 0;
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+.log-save .figure {
+  font-size: clamp(2.8rem, 12vw, 3.6rem);
+}
+
+.log-save .result {
+  margin-top: 8px;
+  padding: 14px 16px 12px;
+}
+
+.log-save:has(> .card:not([hidden])) #save-log,
+.log-save:has(> .card:not([hidden])) #log-add-button {
+  box-shadow: none;
 }
 
 #save-log { box-shadow: 0 12px 30px rgba(26, 36, 33, 0.28); }
@@ -1063,9 +1096,45 @@ input::placeholder {
   box-shadow: var(--shadow);
 }
 
+.log-save:has(> .card:not([hidden])) .save-note:not(:empty) {
+  padding: 0;
+  background: none;
+  box-shadow: none;
+}
+
 .log-save .save-note:empty {
-  min-height: 0;
-  margin: 0;
+  display: none;
+}
+
+.log-save.is-covering:has(> .card:not([hidden])) {
+  box-shadow:
+    0 -12px 22px rgba(38, 32, 22, 0.16),
+    var(--shadow);
+}
+
+@media (min-width: 521px) {
+  .log-save.is-scrollable:has(> .card:not([hidden])) {
+    margin-inline: -20px;
+  }
+}
+
+.log-save.is-covering::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+}
+
+.log-save.is-covering::after {
+  left: 50%;
+  bottom: calc(100% - 11px);
+  width: 22px;
+  height: 22px;
+  translate: -50% 0;
+  border-radius: 50%;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235c675f' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E") center / 14px no-repeat,
+    var(--card);
+  box-shadow: 0 4px 12px rgba(38, 32, 22, 0.16);
 }
 
 .save-note {
@@ -1086,7 +1155,10 @@ input::placeholder {
   margin: 0;
   border-radius: 0;
   background: var(--bg);
+  overscroll-behavior: contain;
 }
+
+html:has(dialog[open]) { overflow: hidden; }
 
 .log-panel {
   display: flex;
@@ -1520,7 +1592,7 @@ input::placeholder {
 .status-cards > .card { margin-top: 0; }
 
 
-.card:has(> .add-note) { scroll-margin-bottom: calc(max(16px, env(safe-area-inset-bottom)) + 76px); }
+.card:has(> .add-note) { scroll-margin-bottom: calc(max(16px, env(safe-area-inset-bottom)) + 220px); }
 
 .time-field {
   gap: 2px;
@@ -1734,6 +1806,20 @@ button.secondary {
 }
 
 @media (max-width: 520px) {
+  body {
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 0;
+  }
+
+  .app {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+  }
+
+  .app:has(> .log-save > .card:not([hidden])) > main { padding-bottom: 22px; }
+
   .card { padding: 14px; }
   .split button { width: 36px; height: 36px; min-height: 36px; font-size: 1.2rem; }
   .suffix { padding: 8px; }
@@ -1757,5 +1843,53 @@ button.secondary {
     white-space: normal;
     line-height: 1.2;
     text-align: center;
+  }
+
+  .log-save:has(> .card:not([hidden])) {
+    bottom: 0;
+    border-radius: 22px 22px 0 0;
+    border-bottom: 0;
+    padding-bottom: max(14px, env(safe-area-inset-bottom));
+  }
+
+  .app > .log-save:has(> .card:not([hidden])) {
+    margin-top: auto;
+    margin-bottom: 0;
+    margin-left: calc(-1 * max(18px, env(safe-area-inset-left)));
+    margin-right: calc(-1 * max(18px, env(safe-area-inset-right)));
+  }
+
+  #log-add-dialog { overflow: hidden; }
+
+  #log-add {
+    height: 100%;
+    max-height: 100%;
+    min-height: 0;
+    overflow: hidden;
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+
+  #log-add > .log-add-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+    padding-bottom: 22px;
+  }
+
+  #log-add .about-head {
+    margin-top: max(18px, env(safe-area-inset-top));
+  }
+
+  #log-add > .log-save {
+    position: relative;
+    bottom: auto;
+    margin-top: 0;
+  }
+
+  #log-add > .log-save:has(> .card:not([hidden])) {
+    margin-left: calc(-1 * max(18px, env(safe-area-inset-left)));
+    margin-right: calc(-1 * max(18px, env(safe-area-inset-right)));
   }
 }

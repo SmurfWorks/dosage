@@ -150,6 +150,7 @@ const deleteConfirm = document.querySelector<HTMLDialogElement>('#delete-confirm
 const deleteCancel = document.querySelector<HTMLButtonElement>('#delete-cancel')!
 const deleteConfirmButton = document.querySelector<HTMLButtonElement>('#delete-confirm-button')!
 const aboutDialog = document.querySelector<HTMLDialogElement>('#about')!
+const aboutTitle = document.querySelector<HTMLElement>('#about-title')!
 const aboutOpen = document.querySelector<HTMLButtonElement>('#about-open')!
 const aboutClose = document.querySelector<HTMLButtonElement>('#about-close')!
 
@@ -1268,6 +1269,7 @@ deleteConfirmButton.addEventListener('click', () => {
   writeGlucoseFromMmol(6)
   render()
   if (logDialog.open) paintLog([])
+  forgetAboutSeen()
 })
 
 function compactNoteEditor() {
@@ -1287,6 +1289,52 @@ function paintVisualViewport() {
 paintVisualViewport()
 window.visualViewport?.addEventListener('resize', paintVisualViewport)
 window.visualViewport?.addEventListener('scroll', paintVisualViewport)
+
+const saveIslands = document.querySelectorAll<HTMLElement>('.log-save')
+
+function coveredByIsland(island: HTMLElement): number {
+  const scroller = island.previousElementSibling
+  if (
+    scroller instanceof HTMLElement &&
+    scroller.classList.contains('log-add-body') &&
+    window.matchMedia('(max-width: 520px)').matches
+  ) {
+    return scroller.scrollHeight - scroller.scrollTop - scroller.clientHeight
+  }
+  const top = island.getBoundingClientRect().top
+  let covered = 0
+  const parent = island.parentElement
+  if (!parent) return 0
+  for (const child of parent.children) {
+    if (child === island) break
+    covered = Math.max(covered, child.getBoundingClientRect().bottom - top)
+  }
+  return covered
+}
+
+function islandScrolls(island: HTMLElement): boolean {
+  const dialog = island.closest('dialog')
+  const scroller = dialog instanceof HTMLElement ? dialog : document.documentElement
+  return scroller.scrollHeight - scroller.clientHeight > 1
+}
+
+function paintSaveCover() {
+  for (const island of saveIslands) {
+    island.classList.toggle('is-covering', coveredByIsland(island) > 28)
+    island.classList.toggle('is-scrollable', islandScrolls(island))
+  }
+}
+
+paintSaveCover()
+window.addEventListener('scroll', paintSaveCover, { passive: true })
+window.addEventListener('resize', paintSaveCover)
+logAddDialog.addEventListener('scroll', paintSaveCover, { passive: true })
+logAddDialog.addEventListener('toggle', () => requestAnimationFrame(paintSaveCover))
+const addBody = document.querySelector<HTMLElement>('.log-add-body')
+addBody?.addEventListener('scroll', paintSaveCover, { passive: true })
+new ResizeObserver(paintSaveCover).observe(document.querySelector('.app')!)
+new ResizeObserver(paintSaveCover).observe(document.querySelector('#log-add')!)
+if (addBody) new ResizeObserver(paintSaveCover).observe(addBody)
 
 function bindNoteEditor(note: HTMLTextAreaElement) {
   const field = note.closest('.note-field')
@@ -1665,6 +1713,10 @@ function readGlucoseField(input: HTMLInputElement): number | null {
   return mmol
 }
 
+function writeAddGlucoseDefault() {
+  addGlucose.value = formatGlucose(carriedTarget(addFormInstant()).mmol, glucoseUnit)
+}
+
 logAddOpen.addEventListener('click', () => {
   addTime.value = currentClock().time
   includeAddCarbs.checked = false
@@ -1676,6 +1728,7 @@ logAddOpen.addEventListener('click', () => {
   addError.textContent = ''
   addInsulin.placeholder = Number.isInteger(readSettings().insulinStep) ? '0' : '0.0'
   addBasal.placeholder = addInsulin.placeholder
+  writeAddGlucoseDefault()
   paintAddInclusion()
   sizeStepInputs()
   logAddDialog.showModal()
@@ -1733,9 +1786,41 @@ logList.addEventListener('click', (event) => {
 logClose.addEventListener('click', () => logDialog.close())
 closeOnBackdrop(logDialog)
 
-aboutOpen.addEventListener('click', () => aboutDialog.showModal())
+aboutOpen.addEventListener('click', () => openAbout(false))
 aboutClose.addEventListener('click', () => aboutDialog.close())
 closeOnBackdrop(aboutDialog)
+aboutDialog.addEventListener('close', markAboutSeen)
+
+const ABOUT_SEEN_KEY = 'insulin-calculator.about-seen'
+
+function openAbout(automatic: boolean) {
+  aboutTitle.textContent = automatic ? 'Learn how this dosage helper works' : 'How it works'
+  aboutDialog.showModal()
+}
+
+function aboutSeen(): boolean {
+  try {
+    return localStorage.getItem(ABOUT_SEEN_KEY) === '1'
+  } catch {
+    return true
+  }
+}
+
+function markAboutSeen() {
+  try {
+    localStorage.setItem(ABOUT_SEEN_KEY, '1')
+  } catch {
+    // Private browsing can block storage. The introduction still closes for this view.
+  }
+}
+
+function forgetAboutSeen() {
+  try {
+    localStorage.removeItem(ABOUT_SEEN_KEY)
+  } catch {
+    // The next refresh still opens the introduction when storage is available.
+  }
+}
 
 const INSTALL_DISMISSED_KEY = 'insulin-calculator.install-dismissed'
 
@@ -1878,3 +1963,4 @@ glucoseFromLog = loggedTarget !== null
 writeGlucoseFromMmol(loggedTarget ?? 6)
 render()
 sizeStepInputs()
+if (!aboutSeen()) openAbout(true)
