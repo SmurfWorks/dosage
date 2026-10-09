@@ -56,6 +56,12 @@ The routine, the log, and your dishes, with how often you pick each, are stored 
 
 On iPhone and iPad, tap Share, then Add to Home Screen; on a Mac in Safari, choose File, then Add to Dock. Other browsers offer an **Install** button. On Android the navigation bar at the bottom follows the phone's light or dark setting; an app installed before this change keeps its old bar colour until Chrome refreshes it or it is reinstalled. The installed app opens full screen, keeps to portrait, and asks you to turn the phone upright if it is held sideways.
 
+## Welcome page
+
+`welcome/index.html` is a short page for people new to the app: what it is for, how it works, how your data stays on your phone, how to install it, and a link into the app. It is published at `https://smurfworks.github.io/dosage/welcome/`, and a printed QR code opens it.
+
+`npm run qr` draws that QR code into `public/qr/welcome.svg` (for print) and `welcome.png`, which are also published under `qr/`. Pass another address with `npm run qr -- <url>`.
+
 ## Develop
 
 ```bash
@@ -79,6 +85,7 @@ The app is TypeScript with Vite and no framework. In `src`:
 | `views.ts` | Screens that slide in over each other |
 | `dishes-view.ts`, `toast.ts`, `save-island.ts` | The Dishes screen, messages, and the sticky islands |
 | `main.ts` | Wires the page together |
+| `theme.css`, `style.css`, `welcome.css` | Shared light and dark colours, the app's styles, and the welcome page's styles |
 
 Logic lives in the small modules, each with a `*.test.ts` beside it; the screen code is checked in a browser.
 

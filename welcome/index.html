@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#efe8dc" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#151917" media="(prefers-color-scheme: dark)" />
+  <meta name="color-scheme" content="light dark" />
+  <meta name="description"
+    content="Dosage Helper is a free calculator for meal and correction insulin doses, with a log of where you meant to land." />
+  <meta name="robots" content="noindex" />
+  <meta property="og:title" content="Dosage Helper" />
+  <meta property="og:description"
+    content="A free calculator for meal and correction insulin doses, with a log of where you meant to land." />
+  <meta property="og:image" content="https://smurfworks.github.io/dosage/icons/icon-512.png" />
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+  <link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+  <link rel="stylesheet" href="/src/welcome.css" />
+  <title>Dosage Helper</title>
+</head>
+
+<body>
+  <main class="welcome">
+    <header class="hero">
+      <img class="hero-icon" src="/icons/icon-192.png" width="72" height="72" alt="" />
+      <p class="kicker">Bolus insulin calculator</p>
+      <h1>Dosage Helper</h1>
+      <p class="lead">Work out your meal and correction doses from the ratios in your care plan, and keep a log of
+        where you meant to land.</p>
+      <div class="actions">
+        <a class="button" href="../">Open Dosage Helper</a>
+        <a class="button secondary" href="#install">How to install</a>
+      </div>
+      <p class="fine">Free. No account, no tracking. It runs in your browser.</p>
+    </header>
+
+    <section class="card" aria-labelledby="how-title">
+      <h2 id="how-title">How it works</h2>
+      <ol class="steps">
+        <li>
+          <span class="step-number" aria-hidden="true">1</span>
+          <div>
+            <h3>Enter your glucose</h3>
+            <p>Type your reading, or nudge it with the − and + buttons, in mmol/L or mg/dL.</p>
+          </div>
+        </li>
+        <li>
+          <span class="step-number" aria-hidden="true">2</span>
+          <div>
+            <h3>Add your carbs</h3>
+            <p>Enter the carbs you are about to eat, take off any fibre, or pick a dish you have saved.</p>
+          </div>
+        </li>
+        <li>
+          <span class="step-number" aria-hidden="true">3</span>
+          <div>
+            <h3>Read your dose</h3>
+            <p>It shows the bolus that brings you closest to your target, rounded to your pen or pump, and the glucose
+              that dose is meant to reach.</p>
+          </div>
+        </li>
+      </ol>
+    </section>
+
+    <section class="card" aria-labelledby="more-title">
+      <h2 id="more-title">What else it does</h2>
+      <ul class="features">
+        <li><strong>A log of where you meant to land.</strong> Each entry keeps the target you aimed for beside your
+          reading, so you can see whether your ratios are working, with a graph for each day.</li>
+        <li><strong>Dishes.</strong> Save the meals you eat often and fill in their carbs and fibre in one tap, in
+          portions or added together.</li>
+        <li><strong>A recent bolus warning.</strong> If you logged a bolus in the last 4 hours, it reminds you that
+          insulin may still be working.</li>
+        <li><strong>Basal by time of day.</strong> Keep your morning, lunch, dinner and overnight basal doses and log
+          them with each entry.</li>
+        <li><strong>Light and dark.</strong> It follows your phone's setting, so it is easy on the eyes at night.</li>
+      </ul>
+    </section>
+
+    <section class="card" aria-labelledby="data-title">
+      <h2 id="data-title">Your data stays on your phone</h2>
+      <p>There is no account to make. Your routine, log and dishes are stored in the browser on your device and are
+        never sent anywhere. Back them up to a file from <strong>Set your routine</strong> to move them to another
+        device.</p>
+    </section>
+
+    <section class="card" id="install" aria-labelledby="install-title">
+      <h2 id="install-title">Install it</h2>
+      <p>Installed, it opens full screen like an app and works without a connection.</p>
+      <dl class="install">
+        <div>
+          <dt>iPhone and iPad</dt>
+          <dd>Open it in Safari, tap <strong>Share</strong>, then <strong>Add to Home Screen</strong>.</dd>
+        </div>
+        <div>
+          <dt>Android</dt>
+          <dd>Open it in Chrome, tap the <strong>⋮</strong> menu, then <strong>Install app</strong> or <strong>Add to
+              Home screen</strong>.</dd>
+        </div>
+        <div>
+          <dt>Mac</dt>
+          <dd>In Safari, choose <strong>File</strong>, then <strong>Add to Dock</strong>. In Chrome, use the install
+            button in the address bar.</dd>
+        </div>
+      </dl>
+    </section>
+
+    <aside class="card safety" aria-labelledby="safety-title">
+      <h2 id="safety-title">A helper, alongside your care team</h2>
+      <p>Dosage Helper applies the ratios you enter. It does not replace your diabetes care plan, and its suggestion
+        does not count insulin that may still be working. Change your ratios with your care team, and take extra care
+        when you are unwell, exercising, or a number looks surprising.</p>
+    </aside>
+
+    <footer class="closing">
+      <a class="button" href="../">Open Dosage Helper</a>
+    </footer>
+  </main>
+</body>
+
+</html>

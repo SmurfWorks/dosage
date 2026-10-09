@@ -6,6 +6,13 @@ export default defineConfig({
   build: {
     outDir: 'docs',
     emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        app: 'index.html',
+        // The page a printed QR code opens: what the app is for, with a link into it.
+        welcome: 'welcome/index.html',
+      },
+    },
   },
   test: {
     environment: 'node',
