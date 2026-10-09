@@ -19,8 +19,9 @@
   /* Solid teal behind white text, kept separate from --teal so dark mode can lighten text without fading fills. */
   --teal-fill: #134e4a;
   --on-teal: #fff;
-  /* Text on --ink, the default button colour. */
-  --on-ink: #fff;
+  /* Filled buttons, such as Save to log. */
+  --button: #1a2421;
+  --on-button: #fff;
   --glow-warm: #f7f1e6;
   --glow-cool: #d7ebe4;
   --field: #fff;
@@ -83,7 +84,8 @@
     --shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
     --teal-fill: #2a6c64;
     --on-teal: #fff;
-    --on-ink: #151917;
+    --button: #8fd3c5;
+    --on-button: #10231f;
     --glow-warm: #1d211c;
     --glow-cool: #142a26;
     --field: #141816;
@@ -2215,8 +2217,8 @@ button {
   border: 0;
   border-radius: 999px;
   padding: 12px 16px;
-  background: var(--ink);
-  color: var(--on-ink);
+  background: var(--button);
+  color: var(--on-button);
   font-weight: 700;
   cursor: pointer;
 }

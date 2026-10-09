@@ -19,7 +19,11 @@ export default defineConfig({
         short_name: 'Dosage Helper',
         description:
           'Personal calculator for carbohydrate and insulin doses from your glucose reading.',
-        theme_color: '#efe8dc',
+        // Left out on purpose: Chrome on Android (156 and later) paints an installed app's navigation bar with the
+        // manifest colour, which has no dark variant, so the bar stayed cream in dark mode. Without it the bar
+        // follows the phone's theme, and the theme-color meta tags in index.html still colour the status bar.
+        // The plugin fills in its own default unless this is explicitly undefined.
+        theme_color: undefined,
         background_color: '#efe8dc',
         display: 'standalone',
         orientation: 'portrait',

@@ -20,7 +20,7 @@ The island at the foot of the screen shows the **Calculated target**, the glucos
 
 **Dishes**, beside Carbs, keeps the dishes you eat often with their carbs and fibre. It lists your three most-picked dishes; search by name to find others. Tap a dish to fill in its amounts. Above the list, **Portion** picks ½, 1, 1½ or 2 of the dish, and once carbs are entered **Fill in** offers **Add to** them instead of replacing them, to build a meal from several dishes. Both start at Replace and 1 each time Dishes opens. **Add a dish** takes a name and its grams with the same stepped inputs, shows the calculated carbs once there is fibre, and starts with the amounts already entered. Saving a name you already have updates that dish and keeps its place in the list. The pencil on a dish opens it in **Edit dish**, to change its grams or rename it. Remove a dish with its ×, and **Undo** brings it back. With no dishes yet, the form opens straight away.
 
-The app follows the phone's light or dark setting.
+The app follows the phone's light or dark setting. In dark mode, buttons are light teal.
 
 The **?** beside the title opens **How it works**, which also appears the first time the app is opened.
 
@@ -54,7 +54,7 @@ The routine, the log, and your dishes, with how often you pick each, are stored 
 
 ## Install
 
-On iPhone and iPad, tap Share, then Add to Home Screen; on a Mac in Safari, choose File, then Add to Dock. Other browsers offer an **Install** button. The installed app opens full screen, keeps to portrait, and asks you to turn the phone upright if it is held sideways.
+On iPhone and iPad, tap Share, then Add to Home Screen; on a Mac in Safari, choose File, then Add to Dock. Other browsers offer an **Install** button. On Android the navigation bar at the bottom follows the phone's light or dark setting; an app installed before this change keeps its old bar colour until Chrome refreshes it or it is reinstalled. The installed app opens full screen, keeps to portrait, and asks you to turn the phone upright if it is held sideways.
 
 ## Develop
 
