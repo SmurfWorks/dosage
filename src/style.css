@@ -1504,9 +1504,11 @@ input::placeholder {
     margin-right: calc(-1 * max(18px, env(safe-area-inset-right)));
   }
 
-  /* Room between the last card and the island once you reach the end of the form. */
+  /* Room between the last card and the island once you reach the end of the form. The bottom margin matches the
+     sticky offset, so at the end of the scroll the island settles into place instead of staying 12px stuck. */
   #home > .log-save:has(> .card:not([hidden])) {
     margin-top: 36px;
+    margin-bottom: max(12px, env(safe-area-inset-bottom));
   }
 
   #home > .log-save.is-covering:has(> .card:not([hidden])) {
