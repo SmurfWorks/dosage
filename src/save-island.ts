@@ -3,7 +3,7 @@ const COVERING_PX = 28
 
 /**
  * The sticky target and save islands at the foot of the calculator and the add-entry form. Each is marked
- * `is-covering` while content runs underneath it and `is-scrollable` while its screen scrolls.
+ * `is-covering` while content runs underneath it.
  */
 export function watchSaveIslands(observed: HTMLElement[], scrollers: HTMLElement[]): () => void {
   const islands = document.querySelectorAll<HTMLElement>('.log-save')
@@ -11,7 +11,6 @@ export function watchSaveIslands(observed: HTMLElement[], scrollers: HTMLElement
   function paint() {
     for (const island of islands) {
       island.classList.toggle('is-covering', coveredByIsland(island) > COVERING_PX)
-      island.classList.toggle('is-scrollable', islandScrolls(island))
     }
   }
 
@@ -42,17 +41,4 @@ function coveredByIsland(island: HTMLElement): number {
     covered = Math.max(covered, child.getBoundingClientRect().bottom - top)
   }
   return covered
-}
-
-function islandScrolls(island: HTMLElement): boolean {
-  let node = island.parentElement
-  while (node && node !== document.documentElement) {
-    const overflow = getComputedStyle(node).overflowY
-    if (overflow === 'auto' || overflow === 'scroll') {
-      return node.scrollHeight - node.clientHeight > 1
-    }
-    node = node.parentElement
-  }
-  const root = document.documentElement
-  return root.scrollHeight - root.clientHeight > 1
 }

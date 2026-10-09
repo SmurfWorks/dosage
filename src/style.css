@@ -1492,13 +1492,20 @@ input::placeholder {
     var(--shadow);
 }
 
+/* On wider screens the island reaches into the side padding only while it floats over content, so it reads as a
+   layer above the page. Sitting at the end of the content, it is as wide as the cards. */
 @media (min-width: 521px) {
-  .log-save.is-scrollable:has(> .card:not([hidden])) {
-    margin-inline: -20px;
+  .log-save:has(> .card:not([hidden])) {
+    transition: margin 0.2s ease, width 0.2s ease;
   }
 
-  #home > .log-save.is-scrollable:has(> .card:not([hidden])) {
-    width: calc(min(100%, 40rem) + 40px);
+  #log-add > .log-save.is-covering:has(> .card:not([hidden])) {
+    margin-left: calc(-1 * max(18px, env(safe-area-inset-left)));
+    margin-right: calc(-1 * max(18px, env(safe-area-inset-right)));
+  }
+
+  #home > .log-save.is-covering:has(> .card:not([hidden])) {
+    width: calc(min(100%, 40rem) + 36px);
     margin-left: auto;
     margin-right: auto;
   }
