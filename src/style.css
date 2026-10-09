@@ -1504,6 +1504,11 @@ input::placeholder {
     margin-right: calc(-1 * max(18px, env(safe-area-inset-right)));
   }
 
+  /* Room between the last card and the island once you reach the end of the form. */
+  #home > .log-save:has(> .card:not([hidden])) {
+    margin-top: 36px;
+  }
+
   #home > .log-save.is-covering:has(> .card:not([hidden])) {
     width: calc(min(100%, 40rem) + 36px);
     margin-left: auto;
@@ -2295,7 +2300,7 @@ button.secondary {
     padding-bottom: 0;
   }
 
-  .app:has(#home > .log-save > .card:not([hidden])) #home > main { padding-bottom: 22px; }
+  .app:has(#home > .log-save > .card:not([hidden])) #home > main { padding-bottom: 36px; }
 
   .card { padding: 14px; }
   .split button { width: 36px; height: 36px; min-height: 36px; font-size: 1.2rem; }
