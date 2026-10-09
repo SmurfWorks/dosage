@@ -1194,6 +1194,7 @@ const dishes = createDishesView(
     paintNetCarbs,
     stepFromButton,
     sizeStepInputs,
+    showToast,
   },
   homeDishTarget,
 )
@@ -1811,9 +1812,18 @@ logList.addEventListener('click', (event) => {
     return
   }
   const button = (event.target as Element).closest<HTMLButtonElement>('[data-remove]')
-  if (!button?.dataset.remove) return
-  saveLog(loadLog().filter((entry) => entry.id !== button.dataset.remove))
+  const removed = loadLog().find((entry) => entry.id === button?.dataset.remove)
+  if (!removed) return
+  saveLog(loadLog().filter((entry) => entry.id !== removed.id))
   paintLog(loadLog())
+  showToast(`Removed the ${formatLogTime(removed.at, removed.timeZone)} entry.`, {
+    label: 'Undo',
+    run: () => {
+      if (loadLog().some((entry) => entry.id === removed.id)) return
+      saveLog([...loadLog(), removed])
+      if (viewIsOpen(logDialog)) paintLog(loadLog())
+    },
+  })
 })
 logClose.addEventListener('click', () => views.dismiss(logDialog))
 

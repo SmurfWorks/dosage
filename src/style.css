@@ -1813,6 +1813,7 @@ html.is-sliding .app-view.is-open { overflow-y: hidden; }
 .log-value.is-out-of-range { background: var(--out-of-range-soft); color: var(--out-of-range); }
 
 .log-remove {
+  position: relative;
   width: 26px;
   height: 26px;
   min-height: 26px;
@@ -1822,6 +1823,13 @@ html.is-sliding .app-view.is-open { overflow-y: hidden; }
   color: var(--warn);
   font-size: 1.05rem;
   line-height: 1;
+}
+
+/* The badge stays small, but the area you can tap is 44 points square. */
+.log-remove::after {
+  content: "";
+  position: absolute;
+  inset: -9px;
 }
 
 .log-entry time {
@@ -1954,6 +1962,31 @@ html.is-sliding .app-view.is-open { overflow-y: hidden; }
 .toast.is-visible {
   opacity: 1;
   transform: translate(-50%, 0);
+}
+
+.toast.has-action {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 14px 14px 22px;
+  font-size: 1.05rem;
+  text-align: left;
+}
+
+.toast.has-action.is-visible { pointer-events: auto; }
+
+.toast-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.toast-action {
+  flex: none;
+  min-height: 44px;
+  padding: 10px 18px;
+  background: #fff;
+  color: #16884a;
+  font-size: 1rem;
 }
 
 .settings-grid {

@@ -10,6 +10,7 @@ import {
   type Dish,
 } from './dishes'
 import { escapeHtml, parseDecimal } from './text'
+import type { ShowToast } from './toast'
 
 /** The form a picked dish fills in, and the screen Dishes slides over. */
 export type DishTarget = {
@@ -27,6 +28,7 @@ export type DishesViewOptions = {
   /** Handles a click on a −/+ stepper button inside the form. */
   stepFromButton(event: Event): void
   sizeStepInputs(): void
+  showToast: ShowToast
 }
 
 export type DishesView = {
@@ -163,8 +165,19 @@ export function createDishesView(options: DishesViewOptions, initialTarget: Dish
     const clicked = event.target as Element
     const remove = clicked.closest<HTMLButtonElement>('[data-dish-remove]')
     if (remove) {
-      saveDishes(loadDishes().filter((dish) => dish.id !== remove.dataset.dishRemove))
+      const removed = loadDishes().find((dish) => dish.id === remove.dataset.dishRemove)
+      if (!removed) return
+      saveDishes(loadDishes().filter((dish) => dish.id !== removed.id))
       paint()
+      options.showToast(`Removed ${removed.name}.`, {
+        label: 'Undo',
+        run: () => {
+          const dishes = loadDishes()
+          if (dishes.some((dish) => dish.id === removed.id)) return
+          saveDishes([...dishes, removed])
+          paint()
+        },
+      })
       return
     }
     const button = clicked.closest<HTMLButtonElement>('[data-dish]')
