@@ -18,7 +18,7 @@ The suggestion stays hidden until you change the glucose, carbs, or fibre. Then:
 
 The island at the foot of the screen shows the **Calculated target**, the glucose the dose is meant to reach, or **Maintaining target** when nothing changes it. **Show the working** lists each step of the maths. Untick Carbs or Insulin Dosage to leave either out.
 
-**Dishes**, beside Carbs, keeps the dishes you eat often with their carbs and fibre. It lists your three most-picked dishes; search by name to find others. Tap a dish to fill in both amounts. **Add a dish** takes a name and its grams with the same stepped inputs, shows the calculated carbs once there is fibre, and starts with the amounts already entered. Saving a name you already have updates that dish and keeps its place in the list. With no dishes yet, the form opens straight away.
+**Dishes**, beside Carbs, keeps the dishes you eat often with their carbs and fibre. It lists your three most-picked dishes; search by name to find others. Tap a dish to fill in its amounts. Above the list, **Portion** picks ½, 1, 1½ or 2 of the dish, and once carbs are entered **Fill in** offers **Add to** them instead of replacing them, to build a meal from several dishes. Both start at Replace and 1 each time Dishes opens. **Add a dish** takes a name and its grams with the same stepped inputs, shows the calculated carbs once there is fibre, and starts with the amounts already entered. Saving a name you already have updates that dish and keeps its place in the list. The pencil on a dish opens it in **Edit dish**, to change its grams or rename it. Remove a dish with its ×, and **Undo** brings it back. With no dishes yet, the form opens straight away.
 
 The app follows the phone's light or dark setting.
 

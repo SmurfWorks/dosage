@@ -1060,6 +1060,75 @@ input::placeholder {
 
 .dish-form-actions #dish-add { flex: 1; }
 
+.dish-pick-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 18px;
+  margin-top: 14px;
+}
+
+.dish-pick-options[hidden],
+.dish-option[hidden] { display: none; }
+
+.dish-option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.dish-option-label {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 650;
+}
+
+.dish-units {
+  margin-top: 0;
+}
+
+.dish-units label {
+  min-width: 0;
+  min-height: 34px;
+  padding: 6px 12px;
+}
+
+.dish-portions {
+  grid-template-columns: repeat(4, auto);
+}
+
+.dish-edit {
+  position: relative;
+  display: grid;
+  place-items: center;
+  flex: none;
+  width: 26px;
+  height: 26px;
+  min-height: 26px;
+  padding: 0;
+  border-radius: 50%;
+  background: var(--teal-soft);
+  color: var(--teal);
+}
+
+.dish-edit svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* Like the remove badge, the area you can tap is 44 points square. */
+.dish-edit::after {
+  content: "";
+  position: absolute;
+  inset: -9px;
+}
+
+.dish .dish-edit + .log-remove { margin-left: 8px; }
+
 .dish-list {
   display: grid;
   gap: 10px;

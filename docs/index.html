@@ -16,8 +16,8 @@
   <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
   <title>Dosage Helper</title>
-  <script type="module" crossorigin src="./assets/index-CiQCatSc.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/index-kUUm-00y.css">
+  <script type="module" crossorigin src="./assets/index-B3qNHrEe.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/index-DG4P9aMu.css">
 <link rel="manifest" href="./manifest.webmanifest"></head>
 
 <body>
@@ -673,6 +673,24 @@
             <p id="dish-list-hint" class="hint dishes-hint">Your most-picked dishes. Tap one to fill in its carbs and
               fibre.</p>
           </div>
+          <div id="dish-pick-options" class="dish-pick-options">
+            <div id="dish-mode-row" class="dish-option">
+              <span id="dish-mode-label" class="dish-option-label">Fill in</span>
+              <div class="units dish-units" role="radiogroup" aria-labelledby="dish-mode-label">
+                <label><input type="radio" name="dish-mode" value="replace" checked /> Replace</label>
+                <label><input type="radio" name="dish-mode" value="add" /> <span id="dish-add-label">Add</span></label>
+              </div>
+            </div>
+            <div class="dish-option">
+              <span id="dish-portion-label" class="dish-option-label">Portion</span>
+              <div class="units dish-units dish-portions" role="radiogroup" aria-labelledby="dish-portion-label">
+                <label><input type="radio" name="dish-portion" value="0.5" aria-label="Half" /> ½</label>
+                <label><input type="radio" name="dish-portion" value="1" checked /> 1</label>
+                <label><input type="radio" name="dish-portion" value="1.5" aria-label="One and a half" /> 1½</label>
+                <label><input type="radio" name="dish-portion" value="2" /> 2</label>
+              </div>
+            </div>
+          </div>
           <ul id="dish-list" class="dish-list" aria-live="polite"></ul>
           <p id="dish-empty" class="dish-empty" aria-live="polite">No dishes yet. Add the ones you eat often below.</p>
           <button id="dish-form-open" class="dish-form-open" type="button" aria-controls="dish-form"
@@ -681,7 +699,7 @@
             Add a dish
           </button>
           <form id="dish-form" class="card dish-form" novalidate>
-            <h3>Add a dish</h3>
+            <h3 id="dish-form-title">Add a dish</h3>
             <label for="dish-name">Name</label>
             <div class="field">
               <input id="dish-name" type="text" maxlength="60" autocomplete="off" enterkeyhint="next"
@@ -732,7 +750,7 @@
             <div id="dish-net-carbs" class="net-carbs" hidden>
               <p></p>
             </div>
-            <p class="hint">Saving a name you already have updates that dish.</p>
+            <p id="dish-form-hint" class="hint">Saving a name you already have updates that dish.</p>
             <p id="dish-error" class="save-note is-error" aria-live="polite"></p>
             <div class="dish-form-actions">
               <button id="dish-form-cancel" class="secondary" type="button">Cancel</button>

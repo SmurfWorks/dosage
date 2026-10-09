@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
 import {
   createDish,
+  editDish,
   findDishes,
+  formatPortion,
+  pickedGrams,
   formatDishGrams,
   parseDishes,
   recordDishUse,
@@ -82,5 +85,39 @@ describe('dishes', () => {
     expect(findDishes(dishes, '  BANANA   porr ').map((item) => item.id)).toEqual(['1'])
     expect(findDishes(dishes, '').map((item) => item.id)).toEqual(['5', '3', '2'])
     expect(findDishes(dishes, 'pizza')).toEqual([])
+  })
+
+  it('edits a dish in place, keeping its id and count', () => {
+    const result = editDish([dish({ id: '1', uses: 4 }), dish({ id: '2', name: 'Rice' })], '1', ' Oat porridge ', 50, 7)
+    expect(result).toEqual({
+      ok: true,
+      dishes: [dish({ id: '1', name: 'Oat porridge', carbsGrams: 50, fibreGrams: 7, uses: 4 }), dish({ id: '2', name: 'Rice' })],
+    })
+  })
+
+  it('refuses an edit that clashes with another dish, is unreadable, or is for a removed dish', () => {
+    const dishes = [dish({ id: '1' }), dish({ id: '2', name: 'Rice' })]
+    expect(editDish(dishes, '1', 'rice', 40, 0)).toEqual({ ok: false, message: 'You already have a dish called Rice.' })
+    expect(editDish(dishes, '1', 'PORRIDGE', 40, 0).ok).toBe(true)
+    expect(editDish(dishes, '1', '', 40, 0).ok).toBe(false)
+    expect(editDish(dishes, '1', 'Porridge', 600, 0).ok).toBe(false)
+    expect(editDish(dishes, 'gone', 'Porridge', 40, 0)).toEqual({ ok: false, message: 'That dish has been removed.' })
+  })
+
+  it('fills in a portion of a dish in place of what is entered', () => {
+    const porridge = dish({ carbsGrams: 45, fibreGrams: 6 })
+    expect(pickedGrams({ carbsGrams: 30, fibreGrams: 2 }, porridge, 1, false)).toEqual({ carbsGrams: 45, fibreGrams: 6 })
+    expect(pickedGrams({ carbsGrams: 0, fibreGrams: 0 }, porridge, 0.5, false)).toEqual({ carbsGrams: 22.5, fibreGrams: 3 })
+    expect(pickedGrams({ carbsGrams: 0, fibreGrams: 0 }, porridge, 1.5, false)).toEqual({ carbsGrams: 67.5, fibreGrams: 9 })
+  })
+
+  it('adds a portion of a dish to what is entered', () => {
+    const toast = dish({ carbsGrams: 15.3, fibreGrams: 1.1 })
+    expect(pickedGrams({ carbsGrams: 30, fibreGrams: 2 }, toast, 2, true)).toEqual({ carbsGrams: 60.6, fibreGrams: 4.2 })
+    expect(pickedGrams({ carbsGrams: 0.1, fibreGrams: 0.2 }, toast, 0.5, true)).toEqual({ carbsGrams: 7.8, fibreGrams: 0.8 })
+  })
+
+  it('names portions with fractions', () => {
+    expect([0.5, 1, 1.5, 2].map((portion) => formatPortion(portion as 0.5 | 1 | 1.5 | 2))).toEqual(['½', '1', '1½', '2'])
   })
 })

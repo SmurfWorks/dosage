@@ -26,6 +26,45 @@ export function upsertDish(dishes: Dish[], dish: Dish): Dish[] {
   return sortDishes([...others, existing ? { ...dish, uses: existing.uses } : dish])
 }
 
+/** Changes a dish's name and grams in place, keeping its id and how often it was picked. */
+export function editDish(
+  dishes: Dish[],
+  id: string,
+  name: string,
+  carbsGrams: number,
+  fibreGrams: number,
+): { ok: true; dishes: Dish[] } | { ok: false; message: string } {
+  const existing = dishes.find((dish) => dish.id === id)
+  if (!existing) return { ok: false, message: 'That dish has been removed.' }
+  const edited = readDish({ ...existing, name, carbsGrams, fibreGrams })
+  if (!edited) return { ok: false, message: 'That dish could not be saved.' }
+  const key = edited.name.toLowerCase()
+  const clash = dishes.find((dish) => dish.id !== id && dish.name.toLowerCase() === key)
+  if (clash) return { ok: false, message: `You already have a dish called ${clash.name}.` }
+  return { ok: true, dishes: sortDishes(dishes.map((dish) => (dish.id === id ? edited : dish))) }
+}
+
+export const DISH_PORTIONS = [0.5, 1, 1.5, 2] as const
+export type DishPortion = (typeof DISH_PORTIONS)[number]
+
+export type DishGrams = { carbsGrams: number; fibreGrams: number }
+
+/**
+ * The carbs and fibre to fill in after picking a dish: a portion of the dish, either in place of what is
+ * already entered or added to it.
+ */
+export function pickedGrams(current: DishGrams, dish: Dish, portion: DishPortion, add: boolean): DishGrams {
+  const round = (grams: number) => Math.round(grams * 10) / 10
+  const carbs = round(dish.carbsGrams * portion)
+  const fibre = round(dish.fibreGrams * portion)
+  if (!add) return { carbsGrams: carbs, fibreGrams: fibre }
+  return { carbsGrams: round(current.carbsGrams + carbs), fibreGrams: round(current.fibreGrams + fibre) }
+}
+
+export function formatPortion(portion: DishPortion): string {
+  return portion === 0.5 ? '½' : portion === 1.5 ? '1½' : String(portion)
+}
+
 export function recordDishUse(dishes: Dish[], id: string): Dish[] {
   return dishes.map((dish) => (dish.id === id ? { ...dish, uses: dish.uses + 1 } : dish))
 }
