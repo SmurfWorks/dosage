@@ -1,0 +1,38 @@
+#!/bin/sh
+# Refuse a commit that changes the app without updating README.md, unless the message says no change is needed.
+set -e
+
+cd "$(git rev-parse --show-toplevel)"
+
+# Merges and reverts carry changes that were already described.
+if [ -f "$(git rev-parse --git-path MERGE_HEAD)" ] || [ -f "$(git rev-parse --git-path REVERT_HEAD)" ]; then
+  exit 0
+fi
+
+staged=$(git diff --cached --name-only --diff-filter=ACMRD)
+
+app_changes=$(printf '%s\n' "$staged" | grep -E '^(src/|index\.html$|public/|vite\.config\.ts$)' | grep -vE '\.test\.ts$' || true)
+if [ -z "$app_changes" ]; then
+  exit 0
+fi
+
+if printf '%s\n' "$staged" | grep -qx 'README.md'; then
+  exit 0
+fi
+
+if grep -qiE '^README: no change needed[[:space:]]*$' "$1"; then
+  exit 0
+fi
+
+cat >&2 <<'EOF'
+commit-msg: this commit changes the app but not README.md.
+
+Update README.md so it describes the app after this commit, and stage it.
+If nothing in the README needs to change, add this line to the commit message:
+
+  README: no change needed
+
+Changed app files:
+EOF
+printf '%s\n' "$app_changes" | sed 's/^/  /' >&2
+exit 1

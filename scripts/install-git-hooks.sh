@@ -1,5 +1,5 @@
 #!/bin/sh
-# Point this clone's pre-commit hook at the script in the repository.
+# Point this clone's git hooks at the scripts in the repository.
 set -e
 
 cd "$(dirname "$0")/.."
@@ -10,5 +10,7 @@ fi
 
 hooks=$(git rev-parse --git-path hooks)
 mkdir -p "$hooks"
-chmod +x .githooks/pre-commit
-ln -sfn "$(pwd)/.githooks/pre-commit" "$hooks/pre-commit"
+for hook in pre-commit commit-msg; do
+  chmod +x ".githooks/$hook"
+  ln -sfn "$(pwd)/.githooks/$hook" "$hooks/$hook"
+done
