@@ -14,7 +14,7 @@ The suggestion stays hidden until you change the glucose, carbs, or fibre. Then:
 - **Inside the range with no food, or a meal that already finishes inside the range:** no bolus.
 - **Below the range:** no bolus, plus the grams of carbohydrate that would reach the target.
 
-**Recent bolus warning.** When it suggests a bolus and you logged one in the last 4 hours, a warning under the dose gives that dose and how long ago it was. The suggestion does not subtract insulin that may still be working.
+**Recent bolus warning.** When it suggests a bolus and you logged one within your target expiry time (4 hours unless you change it), a warning under the dose gives that dose and how long ago it was. The suggestion does not subtract insulin that may still be working.
 
 The island at the foot of the screen shows the **Calculated target**, the glucose the dose is meant to reach, or **Maintaining target** when nothing changes it. **Show the working** lists each step of the maths. Untick Carbs or Insulin Dosage to leave either out.
 
@@ -42,6 +42,8 @@ The settings button opens **Set your routine**:
 - Bolus Dosage Increment: 0.1, 0.5 or 1 unit, to match your pen or pump.
 - Whether to subtract fibre.
 - Daily Basal Dosages for morning (4am–10am), lunch (10am–4pm), dinner (4pm–10pm) and overnight (10pm–4am). Changing an amount keeps the earlier amounts for past days.
+- **Let target glucose levels expire**, after 1 to 12 hours (4 by default, as bolus insulin is typically active for up to 4 hours). A log entry keeps your target active for that long, and the recent bolus warning looks back the same distance.
+- **Send reminders**, once targets expire. **Remind me when my target expires** sends one notification when your latest log entry reaches that age, saying the bolus could be wearing off. **Remind me at the following times if I don't have an active target** takes any number of times; each sends a notification only if you have no log entry within the expiry time, and waits if a target expiry reminder went out in the last hour. Reminders arrive only while Dosage Helper is open or still running in the background, and one missed by more than 30 minutes is skipped. On iPhone and iPad they need the app added to the Home Screen. These settings belong to the device, so they are not in backups.
 - **Reset Routine** puts the defaults back.
 
 The defaults are a 4–8 mmol/L range, a 6 mmol/L target, 10 g of carbs raising glucose by 3 mmol/L, and 1 unit lowering it by 3 mmol/L, so 10 g is balanced by 1 unit.
@@ -50,7 +52,7 @@ The defaults are a 4–8 mmol/L range, a 6 mmol/L target, 10 g of carbs raising 
 
 The routine, the log, and your dishes, with how often you pick each, are stored in this browser on this device only.
 
-**Backup to file** saves all of it to a JSON file, and **Restore from file** replaces what is on the device with a backup, after saying what it holds. Backups made before dishes existed restore with no dishes. **Delete all data** clears the log and dishes and resets the routine.
+**Backup to file** saves all of it to a JSON file, and **Restore from file** replaces what is on the device with a backup, after saying what it holds. Backups made before dishes existed restore with no dishes. **Delete all data** clears the log and dishes and resets the routine and reminder settings.
 
 ## Install
 
@@ -75,6 +77,7 @@ The app is TypeScript with Vite and no framework. In `src`:
 | `calculator.ts` | The dose and target maths |
 | `format.ts`, `units.ts` | Wording for a dose and the glucose units |
 | `log.ts` | Log entries, their storage and the recent bolus check |
+| `reminders.ts`, `reminders-view.ts` | Target expiry and reminder rules, and their settings and notifications |
 | `basal.ts` | The basal schedule and its history |
 | `dishes.ts` | Dishes, their storage, search and pick counts |
 | `backup.ts` | Making and reading backup files |

@@ -2055,6 +2055,55 @@ html.is-sliding .app-view.is-open { overflow-y: hidden; }
   font-size: 1rem;
 }
 
+.expiry-hours[hidden],
+.reminder-options[hidden] { display: none; }
+
+.expiry-hours {
+  margin-top: 14px;
+}
+
+.reminder-options {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.reminder-options .control-label {
+  margin: 6px 0 0;
+}
+
+.reminder-times {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.reminder-times:empty { display: none; }
+
+.reminder-time {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.reminder-time .field {
+  flex: 1;
+  margin-top: 0;
+}
+
+.reminder-time input[type="time"] {
+  padding: 8px 0;
+  font-size: 1.15rem;
+}
+
+.reminder-add {
+  justify-self: start;
+  background: var(--teal-soft);
+  color: var(--teal);
+}
+
 .settings-grid {
   display: grid;
   gap: 14px;

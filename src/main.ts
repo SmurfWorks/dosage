@@ -20,6 +20,7 @@ import { dayGraphSvg } from './day-graph'
 import { currentBrowser, inSafari, installCopy, installedOnIos, installsManually } from './device'
 import { loadDishes, saveDishes } from './dishes'
 import { createDishesView, type DishTarget } from './dishes-view'
+import { createRemindersView } from './reminders-view'
 import { describeDose } from './format'
 import {
   browserTimeZone,
@@ -986,7 +987,7 @@ function render() {
 
 /** Warns that the suggestion ignores a bolus logged in the last few hours, which may still be working. */
 function recentBolusWarning(): string {
-  const recent = recentBolus(loadLog())
+  const recent = recentBolus(loadLog(), new Date(), reminders.activeHours())
   if (!recent) return ''
   const dose = formatInsulin(recent.insulinUnits, recent.insulinStep)
   const when = `${formatTimeSince(recent.at)}, at ${formatLogTime(recent.at, recent.timeZone)}`
@@ -1199,6 +1200,9 @@ const dishes = createDishesView(
   homeDishTarget,
 )
 
+/** Target expiry and reminders, in Set your routine. A change to the expiry hours changes the recent bolus warning. */
+const reminders = createRemindersView(() => render())
+
 dishesOpen.addEventListener('click', () => dishes.open(homeDishTarget))
 addDishesOpen.addEventListener('click', () => dishes.open(addDishTarget))
 
@@ -1320,6 +1324,7 @@ deleteConfirmButton.addEventListener('click', () => {
   saveLog([])
   saveDishes([])
   dishes.paint()
+  reminders.reset()
   carbsInput.value = '0'
   fibreInput.value = '0'
   entryNote.value = ''

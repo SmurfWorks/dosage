@@ -61,6 +61,8 @@ export default defineConfig({
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,webmanifest,ico}'],
         navigateFallback: 'index.html',
+        // Tapping a reminder notification opens the app.
+        importScripts: ['notification-click.js'],
       },
     }),
   ],

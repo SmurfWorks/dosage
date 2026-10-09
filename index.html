@@ -352,6 +352,52 @@
               <p class="hint">Fibre is taken off the carbohydrate before the insulin dose.</p>
             </div>
             <div class="card settings-group">
+              <label class="check" for="expiry-enabled">
+                <input id="expiry-enabled" type="checkbox" />
+                Let target glucose levels expire
+              </label>
+              <p class="hint">Bolus insulin is typically active for up to 4 hours. A log entry keeps your target active
+                for this long, and the recent bolus warning looks back the same distance.</p>
+              <div id="expiry-hours-wrap" class="expiry-hours" hidden>
+                <label for="expiry-hours">Targets expire after</label>
+                <div class="field">
+                  <select id="expiry-hours">
+                  <option value="1">1 hour</option>
+                  <option value="2">2 hours</option>
+                  <option value="3">3 hours</option>
+                  <option value="4" selected>4 hours</option>
+                  <option value="5">5 hours</option>
+                  <option value="6">6 hours</option>
+                  <option value="7">7 hours</option>
+                  <option value="8">8 hours</option>
+                  <option value="9">9 hours</option>
+                  <option value="10">10 hours</option>
+                  <option value="11">11 hours</option>
+                  <option value="12">12 hours</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+            <div id="reminders-group" class="card settings-group" hidden>
+              <label class="check" for="notify-enabled">
+                <input id="notify-enabled" type="checkbox" />
+                Send reminders
+              </label>
+              <p id="notify-status" class="hint">Reminders arrive while Dosage Helper is open or still running in the
+                background.</p>
+              <div id="reminder-options" class="reminder-options" hidden>
+                <label class="check" for="remind-expiry">
+                  <input id="remind-expiry" type="checkbox" checked />
+                  Remind me when my target expires
+                </label>
+                <p id="reminder-times-label" class="control-label">Remind me at the following times if I don't have
+                  an active target</p>
+                <ul id="reminder-times" class="reminder-times" aria-labelledby="reminder-times-label"></ul>
+                <button id="reminder-add" class="reminder-add" type="button">+ Add a time</button>
+                <p class="hint">A timed reminder waits if you had a target expiry reminder in the last hour.</p>
+              </div>
+            </div>
+            <div class="card settings-group">
               <p id="basal-label" class="control-label">Daily Basal Dosages</p>
               <div id="basal-list" class="basal-list"></div>
             </div>
