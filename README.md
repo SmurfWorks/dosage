@@ -58,9 +58,7 @@ On iPhone and iPad, tap Share, then Add to Home Screen; on a Mac in Safari, choo
 
 ## Welcome page
 
-`welcome/index.html` is a short page for people new to the app: what it is for, how it works, how your data stays on your phone, how to install it, and a link into the app. It is published at `https://smurfworks.github.io/dosage/welcome/`, and a printed QR code opens it.
-
-`npm run qr` draws that QR code into `public/qr/welcome.svg` (for print) and `welcome.png`, which are also published under `qr/`. Pass another address with `npm run qr -- <url>`.
+`welcome/index.html` is a short page for people new to the app: what it is for, how it works, how your data stays on your phone, how to install it, and a link into the app. It is published at `https://smurfworks.github.io/dosage/welcome/`, which is where a printed QR code points.
 
 ## Develop
 
