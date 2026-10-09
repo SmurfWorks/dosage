@@ -20,6 +20,8 @@ The island at the foot of the screen shows the **Calculated target**, the glucos
 
 **Dishes**, beside Carbs, keeps the dishes you eat often with their carbs and fibre. It lists your three most-picked dishes; search by name to find others. Tap a dish to fill in both amounts. **Add a dish** takes a name and its grams with the same stepped inputs, shows the calculated carbs once there is fibre, and starts with the amounts already entered. Saving a name you already have updates that dish and keeps its place in the list. With no dishes yet, the form opens straight away.
 
+The app follows the phone's light or dark setting.
+
 The **?** beside the title opens **How it works**, which also appears the first time the app is opened.
 
 ## The log
