@@ -1,58 +1,6 @@
+@import './theme.css';
+
 :root {
-  --bg: #efe8dc;
-  --ink: #1a2421;
-  --muted: #5c675f;
-  --card: #fffdf8;
-  --line: #e3d9c8;
-  --teal: #134e4a;
-  --teal-soft: #e5f2ef;
-  --amber: #8a4b12;
-  --amber-soft: #f8ecdc;
-  --good: #1d6b45;
-  --good-soft: #e5f3eb;
-  --warn: #8a3b12;
-  --warn-soft: #f8e6dc;
-  --in-range-soft: #d6ecdc;
-  --out-of-range: #a82a20;
-  --out-of-range-soft: #f8dcd8;
-  --shadow: 0 18px 50px rgba(38, 32, 22, 0.08);
-  /* Solid teal behind white text, kept separate from --teal so dark mode can lighten text without fading fills. */
-  --teal-fill: #134e4a;
-  --on-teal: #fff;
-  /* Filled buttons, such as Save to log. */
-  --button: #1a2421;
-  --on-button: #fff;
-  --glow-warm: #f7f1e6;
-  --glow-cool: #d7ebe4;
-  --field: #fff;
-  --field-sunk: #f6f1e8;
-  --pill: #e4dfd4;
-  --pill-disabled: #f0ece4;
-  --ink-disabled: #b0b6b2;
-  --card-edge: rgba(255, 255, 255, 0.7);
-  --focus-ring: rgba(19, 78, 74, 0.12);
-  --shadow-strong: var(--shadow-strong);
-  --shadow-soft: rgba(38, 32, 22, 0.16);
-  --shadow-faint: rgba(38, 32, 22, 0.05);
-  --dialog-shadow: rgba(26, 36, 33, 0.22);
-  --backdrop: rgba(26, 36, 33, 0.46);
-  --no-bolus: #efeeea;
-  --nav-disabled: #f3f1eb;
-  --nav-disabled-ink: #9aa8a4;
-  --marker: #9aada6;
-  --timeline: rgba(19, 78, 74, 0.35);
-  --log-card: #fff;
-  --log-inputs: #f6f3ed;
-  --neutral: #e7e2d8;
-  --success: #16884a;
-  --on-success: #fff;
-  --success-shadow: rgba(22, 136, 74, 0.35);
-  --help-morning: #f8ecdc;
-  --help-lunch: #f5f0d8;
-  --help-dinner: #e5f2ef;
-  --help-overnight: #dfe6ef;
-  --radius: 22px;
-  color-scheme: light dark;
   font-family: "Avenir Next", "Segoe UI", system-ui, sans-serif;
   color: var(--ink);
   background:
@@ -60,62 +8,6 @@
     radial-gradient(900px 420px at -10% -20%, var(--glow-warm) 0%, transparent 55%),
     radial-gradient(700px 380px at 110% -10%, var(--glow-cool) 0%, transparent 50%),
     var(--bg);
-}
-
-/* Dark mode follows the phone's setting. Warm, low-glare greys keep the cream look's character at night. */
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #151917;
-    --ink: #ece7dd;
-    --muted: #a3ada6;
-    --card: #1e2421;
-    --line: #343d39;
-    --teal: #8fd3c5;
-    --teal-soft: #1d3833;
-    --amber: #e9b47f;
-    --amber-soft: #392b1c;
-    --good: #8fd6ac;
-    --good-soft: #1b3326;
-    --warn: #f2a98a;
-    --warn-soft: #3b251e;
-    --in-range-soft: #1d3a29;
-    --out-of-range: #ff8f82;
-    --out-of-range-soft: #43211e;
-    --shadow: 0 18px 50px rgba(0, 0, 0, 0.35);
-    --teal-fill: #2a6c64;
-    --on-teal: #fff;
-    --button: #8fd3c5;
-    --on-button: #10231f;
-    --glow-warm: #1d211c;
-    --glow-cool: #142a26;
-    --field: #141816;
-    --field-sunk: #171c1a;
-    --pill: #2d3532;
-    --pill-disabled: #212725;
-    --ink-disabled: #5d6662;
-    --card-edge: rgba(255, 255, 255, 0.05);
-    --focus-ring: rgba(143, 211, 197, 0.22);
-    --shadow-strong: rgba(0, 0, 0, 0.5);
-    --shadow-soft: rgba(0, 0, 0, 0.45);
-    --shadow-faint: rgba(0, 0, 0, 0.25);
-    --dialog-shadow: rgba(0, 0, 0, 0.55);
-    --backdrop: rgba(0, 0, 0, 0.62);
-    --no-bolus: #262c29;
-    --nav-disabled: #202624;
-    --nav-disabled-ink: #5d6662;
-    --marker: #4d5f58;
-    --timeline: rgba(143, 211, 197, 0.35);
-    --log-card: #161b19;
-    --log-inputs: #1b201e;
-    --neutral: #2d3532;
-    --success: #1d7a46;
-    --on-success: #fff;
-    --success-shadow: rgba(0, 0, 0, 0.45);
-    --help-morning: #392b1c;
-    --help-lunch: #34301b;
-    --help-dinner: #1d3833;
-    --help-overnight: #202937;
-  }
 }
 
 * {
