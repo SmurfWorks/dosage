@@ -61,6 +61,8 @@ const EFFECT_MMOL_MAX = 30
 
 let glucoseUnit: GlucoseUnit = 'mmol'
 let glucoseFromLog = false
+/** Newest logged target already shown in Current Glucose Reading, so a log change can refresh it. */
+let appliedLogTarget: number | null = null
 let showFibre = true
 
 const unitInputs = [...document.querySelectorAll<HTMLInputElement>('input[name="glucose-unit"]')]
@@ -928,11 +930,18 @@ const views = createViewStack({
     return view === logAddDialog ? logDialog : homeView
   },
   onChange: syncViewLayer,
-  onSettle: () => paintSaveCover(),
+  onSettle: () => {
+    paintSaveCover()
+    if (homeIsShowing()) syncCurrentStatus()
+  },
 })
 
 function covers(view: HTMLElement): boolean {
   return viewIsOpen(view) && !viewIsLeaving(view)
+}
+
+function homeIsShowing(): boolean {
+  return ![dishesView, logAddDialog, logDialog, settingsView].some((view) => viewIsOpen(view) || viewIsLeaving(view))
 }
 
 function syncViewLayer() {
@@ -945,10 +954,10 @@ function syncViewLayer() {
   addDishesOpen.setAttribute('aria-expanded', String(viewIsOpen(dishesView) && dishes.target().view === logAddDialog))
 }
 
-function carriedTarget(at: string): { mmol: number; source: LogEntry | null } {
+function carriedTarget(at: string, inclusive = false): { mmol: number; source: LogEntry | null } {
   const settings = readSettings()
   const fallback = settingsAreValid(settings) ? settings.targetMmol : DEFAULT_SETTINGS.targetMmol
-  return continuedTarget(loadLog(), at, fallback)
+  return continuedTarget(loadLog(), at, fallback, inclusive)
 }
 
 function maintainingSourceCopy(source: LogEntry | null, at: string): string {
@@ -967,7 +976,7 @@ function statusTarget(result: Calculation, includeCarbs: boolean, includeInsulin
   const insulin = includeInsulin ? result.insulinUnits : 0
   const maintaining = !recordsTarget(carbs, insulin)
   if (maintaining) {
-    const carried = carriedTarget(at)
+    const carried = carriedTarget(at, true)
     return { maintaining, mmol: carried.mmol, source: carried.source, at }
   }
   const projected = includeInsulin ? result.projectedMmol : result.projectedMmol + result.insulinFallMmol
@@ -983,6 +992,26 @@ function render() {
   } finally {
     paintBasalChoice()
   }
+}
+
+/**
+ * Keeps Enter your current status in step with the log.
+ * A new newest target replaces Current Glucose Reading. Saving from the calculator always does.
+ */
+function syncCurrentStatus(resetGlucose = false) {
+  const loggedTarget = latestTargetMmol(loadLog())
+  const changed = loggedTarget !== appliedLogTarget
+  appliedLogTarget = loggedTarget
+  if (loggedTarget !== null && (changed || resetGlucose)) {
+    glucoseFromLog = true
+    writeGlucoseFromMmol(loggedTarget)
+  } else if (loggedTarget === null && (changed || resetGlucose)) {
+    glucoseFromLog = false
+    const settings = readSettings()
+    const fallback = settingsAreValid(settings) ? settings.targetMmol : DEFAULT_SETTINGS.targetMmol
+    writeGlucoseFromMmol(fallback)
+  }
+  render()
 }
 
 /** Warns that the suggestion ignores a bolus logged in the last few hours, which may still be working. */
@@ -1303,7 +1332,7 @@ restoreConfirmButton.addEventListener('click', () => {
   saveLog(backup.log)
   saveDishes(backup.dishes)
   dishes.paint()
-  render()
+  syncCurrentStatus(true)
   if (viewIsOpen(logDialog)) paintLog(backup.log)
   showToast('Restored your routine, log and dishes.')
 })
@@ -1330,9 +1359,7 @@ deleteConfirmButton.addEventListener('click', () => {
   entryNote.value = ''
   entryNoteDetails.open = false
   clearAddForm()
-  glucoseFromLog = false
-  writeGlucoseFromMmol(6)
-  render()
+  syncCurrentStatus(true)
   if (viewIsOpen(logDialog)) paintLog([])
   forgetAboutSeen()
 })
@@ -1438,12 +1465,7 @@ function storeLogEntry(payload: {
   entryNote.value = ''
   entryNoteDetails.open = false
   withBasalInput.checked = false
-  const loggedTarget = latestTargetMmol(entries)
-  if (loggedTarget !== null) {
-    glucoseFromLog = true
-    writeGlucoseFromMmol(loggedTarget)
-  }
-  render()
+  syncCurrentStatus(true)
   selectedLogKey = logDateKey(entry.at, entry.timeZone)
   if (!addTime.value) addTime.value = currentClock().time
   paintLog(loadLog())
@@ -1550,6 +1572,7 @@ logAddForm.addEventListener('submit', (event) => {
   entries.push(entry)
   saveLog(entries)
   clearAddForm()
+  syncCurrentStatus()
   views.dismiss(logAddDialog)
   paintAddBasal()
   paintLog(loadLog())
@@ -1820,12 +1843,14 @@ logList.addEventListener('click', (event) => {
   const removed = loadLog().find((entry) => entry.id === button?.dataset.remove)
   if (!removed) return
   saveLog(loadLog().filter((entry) => entry.id !== removed.id))
+  syncCurrentStatus()
   paintLog(loadLog())
   showToast(`Removed the ${formatLogTime(removed.at, removed.timeZone)} entry.`, {
     label: 'Undo',
     run: () => {
       if (loadLog().some((entry) => entry.id === removed.id)) return
       saveLog([...loadLog(), removed])
+      syncCurrentStatus()
       if (viewIsOpen(logDialog)) paintLog(loadLog())
     },
   })
@@ -1994,6 +2019,7 @@ document.addEventListener('input', () => queueMicrotask(sizeStepInputs))
 
 loadSettings()
 const loggedTarget = latestTargetMmol(loadLog())
+appliedLogTarget = loggedTarget
 glucoseFromLog = loggedTarget !== null
 writeGlucoseFromMmol(loggedTarget ?? 6)
 render()

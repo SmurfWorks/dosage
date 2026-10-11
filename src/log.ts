@@ -104,13 +104,22 @@ export function latestTargetMmol(entries: LogEntry[]): number | null {
   return latest ? latest.targetMmol : null
 }
 
-export function continuedTarget(entries: LogEntry[], at: string, fallback: number): { mmol: number; source: LogEntry | null } {
+/**
+ * The target carried into `at` from the latest earlier entry.
+ * `inclusive` also counts an entry at that exact moment, which is the target in effect now.
+ */
+export function continuedTarget(
+  entries: LogEntry[],
+  at: string,
+  fallback: number,
+  inclusive = false,
+): { mmol: number; source: LogEntry | null } {
   let latest: (LogEntry & { targetMmol: number }) | null = null
   const time = Date.parse(at)
   for (const entry of entries) {
     if (!hasTarget(entry)) continue
     const when = Date.parse(entry.at)
-    if (when >= time) continue
+    if (when > time || (!inclusive && when === time)) continue
     if (!latest || when > Date.parse(latest.at)) latest = entry
   }
   return { mmol: latest ? latest.targetMmol : fallback, source: latest }

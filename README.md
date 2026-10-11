@@ -30,7 +30,7 @@ The **?** beside the title opens **How it works**, which also appears the first 
 
 The **log** button opens one day at a time, with a graph of the day's glucose against your range and the entries in time order. Move between days with the arrows or the calendar. **+** adds an entry for a past time on the day you are viewing, with its own Dishes button. Remove an entry with its ×; **Undo** on the message that follows brings it back for a few seconds.
 
-After a save, and the next time you open the app, glucose starts at the target of the newest log entry.
+After a save, Current Glucose Reading moves to the target of the newest log entry. Adding, removing, or undoing a log entry does the same when that changes the newest target, and a maintained target follows straight away, so Enter your current status is up to date as soon as the log changes. The next time you open the app, glucose starts at that target.
 
 ## Your routine
 
@@ -52,7 +52,7 @@ The defaults are a 4–8 mmol/L range, a 6 mmol/L target, 10 g of carbs raising 
 
 The routine, the log, and your dishes, with how often you pick each, are stored in this browser on this device only.
 
-**Backup to file** saves all of it to a JSON file, and **Restore from file** replaces what is on the device with a backup, after saying what it holds. Backups made before dishes existed restore with no dishes. **Delete all data** clears the log and dishes and resets the routine and reminder settings.
+**Backup to file** saves all of it to a JSON file, and **Restore from file** replaces what is on the device with a backup, after saying what it holds. Current Glucose Reading then follows the restored log. Backups made before dishes existed restore with no dishes. **Delete all data** clears the log and dishes and resets the routine and reminder settings.
 
 ## Install
 

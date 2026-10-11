@@ -142,6 +142,15 @@ describe('continued target', () => {
     expect(target.mmol).toBe(6.5)
     expect(target.source).toBeNull()
   })
+
+  it('skips a target at the same moment, and includes it when that moment is now', () => {
+    const entries = [entry({ id: 'now', at: '2026-10-05T12:00:00.000Z', targetMmol: 7.2, carbsGrams: 15 })]
+    const at = '2026-10-05T12:00:00.000Z'
+    expect(continuedTarget(entries, at, 6).source).toBeNull()
+    const current = continuedTarget(entries, at, 6, true)
+    expect(current.mmol).toBe(7.2)
+    expect(current.source?.id).toBe('now')
+  })
 })
 
 describe('custom log entry', () => {
