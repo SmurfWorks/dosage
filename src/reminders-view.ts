@@ -26,6 +26,8 @@ const CHECK_MS = 30_000
 export type RemindersView = {
   /** How long a target stays active, for the recent bolus warning. */
   activeHours(): number
+  /** How long a target lasts before it expires, or null when target expiry is off. */
+  expiryHours(): number | null
   /** Checks the log and reminder settings, and books the result on the reminder server. */
   check(): void
   /** Puts the settings back to their defaults, for Delete all data. */
@@ -113,7 +115,8 @@ export function createRemindersView(onHoursChange: () => void): RemindersView {
   let booking: Promise<void> = Promise.resolve()
 
   function save(next: ReminderSettings) {
-    const hoursChanged = activeHours(next) !== activeHours(settings)
+    const hoursChanged =
+      activeHours(next) !== activeHours(settings) || next.expiryEnabled !== settings.expiryEnabled
     const previousAuth = pushAuth(settings.pushUrl, settings.pushToken)
     const nextSettings = {
       ...next,
@@ -388,6 +391,7 @@ export function createRemindersView(onHoursChange: () => void): RemindersView {
 
   return {
     activeHours: () => activeHours(settings),
+    expiryHours: () => (settings.expiryEnabled ? settings.expiryHours : null),
     check,
     reset() {
       try {

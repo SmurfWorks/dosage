@@ -259,6 +259,31 @@ export function formatLogTime(at: string, timeZone: string): string {
   return zonedFormat(at, timeZone, { hour: 'numeric', minute: '2-digit', hour12: true })
 }
 
+/** A time, with the day in front when it is not on `reference`'s day: `2:48 pm` or `9 Oct, 2:48 pm`. */
+function clockFrom(at: string, timeZone: string, reference: { at: string; timeZone: string }): string {
+  const time = formatLogTime(at, timeZone)
+  if (logDateKey(at, timeZone) === logDateKey(reference.at, reference.timeZone)) return time
+  return `${zonedFormat(at, timeZone, { day: 'numeric', month: 'short' })}, ${time}`
+}
+
+/**
+ * Where the target at `reference` comes from, when nothing logged then changes it. While the target set
+ * by `source` is active it is "Target for {expiry}"; afterwards "{expiry} target set at {set time}".
+ * With target expiry off (`expiryHours` null) it is "Target carried forward from {set time}".
+ */
+export function targetSourceLabel(
+  source: LogEntry | null,
+  reference: { at: string; timeZone: string },
+  expiryHours: number | null,
+): string {
+  if (!source) return 'Target carried forward from your routine'
+  const setAt = clockFrom(source.at, source.timeZone, reference)
+  if (expiryHours === null) return `Target carried forward from ${setAt}`
+  const expiresMs = Date.parse(source.at) + expiryHours * 60 * 60 * 1000
+  const expires = clockFrom(new Date(expiresMs).toISOString(), source.timeZone, reference)
+  return Date.parse(reference.at) < expiresMs ? `Target for ${expires}` : `${expires} target set at ${setAt}`
+}
+
 export function formatInsulin(units: number, step: number): string {
   const decimals = step >= 1 ? 0 : Math.min(4, Math.ceil(-Math.log10(step)))
   const figure = units.toFixed(decimals)

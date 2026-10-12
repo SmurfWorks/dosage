@@ -15,6 +15,7 @@ import {
   logDateKey,
   logMinutesOfDay,
   shiftDateKey,
+  targetSourceLabel,
   todayDateKey,
   formatDateKey,
   formatLocalDateKey,
@@ -327,5 +328,38 @@ describe('recent bolus', () => {
     expect(formatTimeSince(at(40), now)).toBe('40 minutes ago')
     expect(formatTimeSince(at(60), now)).toBe('1 hour ago')
     expect(formatTimeSince(at(125), now)).toBe('2 hours 5 minutes ago')
+  })
+})
+
+describe('targetSourceLabel', () => {
+  const zone = 'America/Los_Angeles'
+  // 10:48 am in Los Angeles on 6 October 2026.
+  const set = entry({ at: '2026-10-06T17:48:00.000Z', timeZone: zone })
+  const at = (iso: string) => ({ at: iso, timeZone: zone })
+  const clock = (iso: string) =>
+    new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: zone }).format(new Date(iso))
+
+  it('names the expiry time while the target is active', () => {
+    expect(targetSourceLabel(set, at('2026-10-06T19:00:00.000Z'), 4)).toBe(
+      `Target for ${clock('2026-10-06T21:48:00.000Z')}`,
+    )
+  })
+
+  it('names the expiry and the time it was set once it has expired', () => {
+    expect(targetSourceLabel(set, at('2026-10-06T21:48:00.000Z'), 4)).toBe(
+      `${clock('2026-10-06T21:48:00.000Z')} target set at ${clock(set.at)}`,
+    )
+  })
+
+  it('adds the day when the time is on another day', () => {
+    const day = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', timeZone: zone }).format(new Date(set.at))
+    expect(targetSourceLabel(set, at('2026-10-07T18:00:00.000Z'), 4)).toBe(
+      `${day}, ${clock('2026-10-06T21:48:00.000Z')} target set at ${day}, ${clock(set.at)}`,
+    )
+  })
+
+  it('says carried forward when target expiry is off, or when the target is from the routine', () => {
+    expect(targetSourceLabel(set, at('2026-10-06T19:00:00.000Z'), null)).toBe(`Target carried forward from ${clock(set.at)}`)
+    expect(targetSourceLabel(null, at('2026-10-06T19:00:00.000Z'), 4)).toBe('Target carried forward from your routine')
   })
 })

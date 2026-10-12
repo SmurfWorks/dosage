@@ -43,6 +43,7 @@ import {
   logMinutesOfDay,
   saveLog,
   shiftDateKey,
+  targetSourceLabel,
   todayDateKey,
   type LogEntry,
 } from './log'
@@ -824,16 +825,7 @@ let selectedLogKey = ''
 let latestFirst = true
 
 function continuedFromLabel(source: LogEntry | null, current: { at: string; timeZone: string }): string {
-  if (!source) return 'from your routine'
-  const time = formatLogTime(source.at, source.timeZone)
-  if (logDateKey(source.at, source.timeZone) === logDateKey(current.at, current.timeZone)) return `from ${time}`
-  const date = new Date(source.at)
-  try {
-    const day = new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', timeZone: source.timeZone }).format(date)
-    return `from ${day}, ${time}`
-  } catch {
-    return `from ${time}`
-  }
+  return targetSourceLabel(source, current, reminders.expiryHours())
 }
 
 function paintLog(entries: LogEntry[]) {
@@ -894,7 +886,7 @@ function paintLog(entries: LogEntry[]) {
       const stats = `${glucose}${group}${result}`
       const time = formatLogTime(entry.at, entry.timeZone)
       const continuedNote = continued
-        ? `<p class="log-continued-note">Target carried forward ${escapeHtml(continuedFromLabel(continued.source, entry))}</p>`
+        ? `<p class="log-continued-note">${escapeHtml(continuedFromLabel(continued.source, entry))}</p>`
         : ''
       const note = entry.note ? `<p class="log-entry-note">${escapeHtml(entry.note)}</p>` : ''
       const custom = entry.custom ? '<span class="log-custom">Custom Log Entry</span>' : ''
@@ -977,8 +969,7 @@ function carriedTarget(at: string, inclusive = false): { mmol: number; source: L
 }
 
 function maintainingSourceCopy(source: LogEntry | null, at: string): string {
-  const from = continuedFromLabel(source, { at, timeZone: browserTimeZone() })
-  return `The target above is carried forward ${from}.`
+  return `${continuedFromLabel(source, { at, timeZone: browserTimeZone() })}.`
 }
 
 function statusTarget(result: Calculation, includeCarbs: boolean, includeInsulin: boolean, net: number): {
@@ -1245,7 +1236,7 @@ const dishes = createDishesView(
   homeDishTarget,
 )
 
-/** Target expiry and reminders, in Set your routine. A change to the expiry hours changes the recent bolus warning. */
+/** Target expiry and reminders, in Set your routine. A change to target expiry changes the recent bolus warning and the target labels. */
 const reminders = createRemindersView(() => render())
 
 dishesOpen.addEventListener('click', () => dishes.open(homeDishTarget))
