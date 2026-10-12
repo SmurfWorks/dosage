@@ -1642,6 +1642,7 @@ html.is-sliding .app-view.is-open { overflow-y: hidden; }
 .day-graph .grid { stroke: var(--line); stroke-width: 1; }
 .day-graph .range { fill: var(--in-range-soft); }
 .day-graph .trace { fill: none; stroke: var(--teal); stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.day-graph .target-line { fill: none; stroke: var(--amber); stroke-width: 2; stroke-dasharray: 0 5; stroke-linecap: round; }
 .day-graph .trend { stroke: var(--teal); stroke-width: 2; stroke-dasharray: 3 4; stroke-linecap: round; opacity: 0.45; }
 .day-graph .point { fill: var(--card); stroke: var(--teal); stroke-width: 2; }
 .day-graph text { fill: var(--muted); font-size: 11px; font-family: inherit; }

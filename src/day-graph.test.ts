@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { dayGraphSvg } from './day-graph'
+import { curvePath, dayGraphSvg, stepPath } from './day-graph'
 import type { LogEntry } from './log'
 
 function entry(overrides: Partial<LogEntry> = {}): LogEntry {
@@ -117,5 +117,75 @@ describe('24-hour log graph', () => {
     expect(svg).toContain('>12pm<')
     expect(svg).not.toContain('<circle')
     expect(svg).toContain('aria-label="24-hour glucose graph, no readings"')
+  })
+
+  it('draws the readings as a curve through each point', () => {
+    const svg = dayGraphSvg(
+      [
+        entry({ id: 'a', at: '2026-10-05T06:00:00.000Z', glucoseMmol: 5 }),
+        entry({ id: 'b', at: '2026-10-05T12:00:00.000Z', glucoseMmol: 9 }),
+        entry({ id: 'c', at: '2026-10-05T18:00:00.000Z', glucoseMmol: 7 }),
+      ],
+      'mmol',
+    )
+    const trace = svg.match(/<path class="trace" d="([^"]+)"/)
+    expect(trace).not.toBeNull()
+    expect(trace![1]).toContain(' C')
+    for (const index of [0, 1, 2]) {
+      const { x, y } = point(svg, index)
+      expect(trace![1]).toContain(`${x},${y}`)
+    }
+  })
+
+  it('draws a dotted step line through the target of each entry, carrying a maintained target', () => {
+    const svg = dayGraphSvg(
+      [
+        entry({ id: 'a', at: '2026-10-05T01:00:00.000Z', targetMmol: null }),
+        entry({ id: 'b', at: '2026-10-05T06:00:00.000Z', glucoseMmol: 9, insulinUnits: 1, targetMmol: 6 }),
+        entry({ id: 'c', at: '2026-10-05T12:00:00.000Z', glucoseMmol: 7, targetMmol: null }),
+        entry({ id: 'd', at: '2026-10-05T18:00:00.000Z', glucoseMmol: 5, carbsGrams: 40, targetMmol: 11 }),
+      ],
+      'mmol',
+    )
+    const line = svg.match(/<path class="target-line" d="([^"]+)"/)
+    expect(line).not.toBeNull()
+    const b = point(svg, 1)
+    const c = point(svg, 2)
+    const d = point(svg, 3)
+    // Starts at the first entry with a target, holds it level through the maintained entry, then steps up.
+    const level = Number(line![1].match(/^M[\d.]+,([\d.]+)/)![1])
+    expect(line![1]).toBe(`M${b.x},${level} H${c.x} V${level} H${d.x} V${line![1].split(' V').pop()}`)
+    const top = Number(line![1].split(' V').pop())
+    // The 11 mmol/L target sits above every reading, so the axis grows to fit it.
+    expect(top).toBeLessThan(b.y)
+    expect(svg).toContain('with a dotted target line')
+  })
+
+  it('draws no target line with fewer than two targets', () => {
+    expect(dayGraphSvg([entry()], 'mmol')).not.toContain('target-line')
+    expect(dayGraphSvg([entry({ targetMmol: null }), entry({ id: '2', at: '2026-10-05T13:00:00.000Z', targetMmol: null })], 'mmol')).not.toContain('target-line')
+  })
+
+  it('steps the target straight from one level to the next', () => {
+    expect(
+      stepPath([
+        { x: 10, y: 50 },
+        { x: 40, y: 30 },
+        { x: 70, y: 30 },
+      ]),
+    ).toBe('M10,50 H40 V30 H70 V30')
+  })
+
+  it('curves without overshooting the points either side', () => {
+    const path = curvePath([
+      { x: 0, y: 100 },
+      { x: 10, y: 20 },
+      { x: 20, y: 20 },
+      { x: 40, y: 80 },
+    ])
+    const ys = [...path.matchAll(/,(-?[\d.]+)/g)].map((match) => Number(match[1]))
+    expect(Math.min(...ys)).toBeGreaterThanOrEqual(20)
+    expect(Math.max(...ys)).toBeLessThanOrEqual(100)
+    expect(curvePath([{ x: 0, y: 1 }, { x: 5, y: 2 }])).toBe('M0,1 L5,2')
   })
 })

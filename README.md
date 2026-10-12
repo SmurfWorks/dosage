@@ -28,7 +28,7 @@ The **?** beside the title opens **How it works**, which also appears the first 
 
 **Save to log** stores the time, glucose, carbs, bolus, target, and an optional note. If you have a basal schedule, **With Basal** also records the basal dose for that time of day.
 
-The **log** button opens one day at a time, with a graph of the day's glucose against your range and the entries in time order. Move between days with the arrows or the calendar. **+** adds an entry for a past time on the day you are viewing, with its own Dishes button. Remove an entry with its ×; **Undo** on the message that follows brings it back for a few seconds.
+The **log** button opens one day at a time, with a graph of the day's glucose against your range and the entries in time order. The graph draws your readings as a smooth curve, with a dotted line for your target. The target line holds level until the next entry that sets a new target, then steps straight to it; an entry that keeps its target carries the one before it. Move between days with the arrows or the calendar. **+** adds an entry for a past time on the day you are viewing, with its own Dishes button. Remove an entry with its ×; **Undo** on the message that follows brings it back for a few seconds.
 
 After a save, Current Glucose Reading moves to the target of the newest log entry. Adding, removing, or undoing a log entry does the same when that changes the newest target, and a maintained target follows straight away, so Enter your current status is up to date as soon as the log changes. The next time you open the app, glucose starts at that target.
 

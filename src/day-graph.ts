@@ -31,7 +31,12 @@ export function dayGraphSvg(
       ? edgeReading(last, neighbours.after, 1440 - logMinutesOfDay(last.at, last.timeZone))
       : undefined
   const edges = [startEdge, endEdge].filter((value) => value !== undefined)
-  const bounds = axisBounds([...points.map((entry) => entry.glucoseMmol), ...edges], range, unit)
+  const targets = dayTargets(points)
+  const bounds = axisBounds(
+    [...points.map((entry) => entry.glucoseMmol), ...edges, ...targets.map((target) => target.mmol)],
+    range,
+    unit,
+  )
   const placed = points.map((entry) => ({
     entry,
     x: xFor(logMinutesOfDay(entry.at, entry.timeZone)),
@@ -66,9 +71,14 @@ export function dayGraphSvg(
     range === undefined
       ? ''
       : `<rect class="range" x="${LEFT}" y="${yFor(range.high, bounds)}" width="${PLOT_WIDTH}" height="${round(yFor(range.low, bounds) - yFor(range.high, bounds))}"><title>${escapeXml(`Target range ${formatGlucose(range.low, unit)} to ${formatGlucose(range.high, unit)} ${unitLabel}`)}</title></rect>`
-  const trace =
-    placed.length > 1
-      ? `<polyline class="trace" points="${placed.map((point) => `${point.x},${point.y}`).join(' ')}"></polyline>`
+  const trace = placed.length > 1 ? `<path class="trace" d="${curvePath(placed)}"></path>` : ''
+  const targetPoints = targets.map((target) => ({
+    x: xFor(logMinutesOfDay(target.entry.at, target.entry.timeZone)),
+    y: yFor(target.mmol, bounds),
+  }))
+  const targetLine =
+    targetPoints.length > 1
+      ? `<path class="target-line" d="${stepPath(targetPoints)}"><title>Target for each entry</title></path>`
       : ''
   const dots = placed
     .map((point) => {
@@ -105,9 +115,69 @@ export function dayGraphSvg(
   const label =
     placed.length === 0
       ? '24-hour glucose graph, no readings'
-      : `24-hour glucose graph, ${placed.length} ${placed.length === 1 ? 'reading' : 'readings'}${trendLabel ? `, with ${trendLabel}` : ''}`
+      : `24-hour glucose graph, ${placed.length} ${placed.length === 1 ? 'reading' : 'readings'}${targetLine ? ', with a dotted target line' : ''}${trendLabel ? `, with ${trendLabel}` : ''}`
 
-  return `<svg class="day-graph" viewBox="0 0 ${WIDTH} ${HEIGHT}" role="img" aria-label="${escapeXml(label)}">${rangeBand}${grid}${horizontals}${trends}${trace}${dots}${xText}${yText}</svg>`
+  return `<svg class="day-graph" viewBox="0 0 ${WIDTH} ${HEIGHT}" role="img" aria-label="${escapeXml(label)}">${rangeBand}${grid}${horizontals}${trends}${targetLine}${trace}${dots}${xText}${yText}</svg>`
+}
+
+/**
+ * The target in effect at each entry. An entry that maintains its target carries the one before it in the day;
+ * entries before the day's first target have none.
+ */
+function dayTargets(sorted: LogEntry[]): { entry: LogEntry; mmol: number }[] {
+  const targets: { entry: LogEntry; mmol: number }[] = []
+  let current: number | null = null
+  for (const entry of sorted) {
+    if (hasTarget(entry)) current = entry.targetMmol
+    if (current !== null) targets.push({ entry, mmol: current })
+  }
+  return targets
+}
+
+/** Holds each target level until the next entry, then steps straight to the new one. */
+export function stepPath(points: { x: number; y: number }[]): string {
+  if (points.length === 0) return ''
+  return points
+    .map((point, index) => (index === 0 ? `M${point.x},${point.y}` : ` H${point.x} V${point.y}`))
+    .join('')
+}
+
+/**
+ * A smooth path through the points, left to right. The curve is monotone between neighbouring points, so it
+ * never rises above or dips below the readings either side of it.
+ */
+export function curvePath(points: { x: number; y: number }[]): string {
+  if (points.length === 0) return ''
+  if (points.length < 3) return `M${points.map((point) => `${point.x},${point.y}`).join(' L')}`
+  const count = points.length
+  const slopes: number[] = []
+  for (let index = 0; index < count - 1; index += 1) {
+    const dx = points[index + 1].x - points[index].x
+    slopes.push(dx === 0 ? 0 : (points[index + 1].y - points[index].y) / dx)
+  }
+  const tangents = points.map((_, index) => {
+    if (index === 0) return slopes[0]
+    if (index === count - 1) return slopes[count - 2]
+    const before = slopes[index - 1]
+    const after = slopes[index]
+    if (before * after <= 0) return 0
+    const dxBefore = points[index].x - points[index - 1].x
+    const dxAfter = points[index + 1].x - points[index].x
+    const total = dxBefore + dxAfter
+    // Weighted harmonic mean (Fritsch–Butland), which keeps each piece monotone.
+    return (3 * total) / ((total + dxAfter) / before + (total + dxBefore) / after)
+  })
+  let path = `M${points[0].x},${points[0].y}`
+  for (let index = 0; index < count - 1; index += 1) {
+    const start = points[index]
+    const end = points[index + 1]
+    const third = (end.x - start.x) / 3
+    path +=
+      ` C${round(start.x + third)},${round(start.y + tangents[index] * third)}` +
+      ` ${round(end.x - third)},${round(end.y - tangents[index + 1] * third)}` +
+      ` ${end.x},${end.y}`
+  }
+  return path
 }
 
 function edgeReading(entry: LogEntry, neighbour: LogEntry, minutesToEdge: number): number {
