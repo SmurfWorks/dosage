@@ -1,5 +1,5 @@
 import { appleHandheld, currentBrowser } from './device'
-import { browserTimeZone, formatLogTime, loadLog } from './log'
+import { browserTimeZone, loadLog } from './log'
 import { checkPushConnection, ensurePushDevice, forgetPushDevice, pageOrigin, pushAuth, pushUrlIsReachable, replaceNotifications, storedPushDeviceId, type BookedNotification, type PushAuth } from './push'
 import {
   activeHours,
@@ -222,13 +222,9 @@ export function createRemindersView(onHoursChange: () => void): RemindersView {
       .join('')
   }
 
-  function describeEntry(entry: { at: string; timeZone: string }) {
-    return formatLogTime(entry.at, entry.timeZone || browserTimeZone())
-  }
-
   /** The same reminders that are booked on the server, so the message matches what will arrive. */
   function upcomingReminders(now: Date) {
-    return scheduledReminders(loadLog(), settings, read(SENT_KEY, parseReminderLog), now, describeEntry)
+    return scheduledReminders(loadLog(), settings, read(SENT_KEY, parseReminderLog), now)
   }
 
   function paintNext() {
@@ -351,7 +347,7 @@ export function createRemindersView(onHoursChange: () => void): RemindersView {
     // Turning reminders on starts afresh: anything already due is marked as dealt with so it doesn't arrive at once,
     // without counting as a sent expiry reminder that would hold back timed ones.
     if (permission === 'granted') {
-      const fresh = dueReminders(loadLog(), { ...settings, notify: true }, EMPTY_REMINDER_LOG, new Date(), () => '')
+      const fresh = dueReminders(loadLog(), { ...settings, notify: true }, EMPTY_REMINDER_LOG, new Date())
       write(SENT_KEY, { ...fresh.sent, expirySentAt: null })
     }
     save({ ...settings, notify: permission === 'granted' })

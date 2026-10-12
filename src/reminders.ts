@@ -1,4 +1,4 @@
-import { formatLogTime, logDateKey, shiftDateKey, type LogEntry } from './log'
+import { formatLogTime, hasTarget, logDateKey, shiftDateKey, type LogEntry } from './log'
 
 /** Bolus insulin is typically active for up to 4 hours. */
 export const DEFAULT_EXPIRY_HOURS = 4
@@ -67,10 +67,15 @@ export function activeHours(settings: ReminderSettings): number {
   return settings.expiryEnabled ? settings.expiryHours : DEFAULT_EXPIRY_HOURS
 }
 
-export function latestEntry(entries: LogEntry[], now: Date): LogEntry | null {
+/**
+ * The latest entry that set a target, with carbs or a bolus. A reading logged on its own keeps the
+ * target it carries forward, so it does not move when that target expires.
+ */
+export function latestTargetEntry(entries: LogEntry[], now: Date): LogEntry | null {
   let latest: LogEntry | null = null
   let latestMs = -Infinity
   for (const entry of entries) {
+    if (!hasTarget(entry)) continue
     const at = Date.parse(entry.at)
     if (!Number.isFinite(at) || at > now.getTime() + 60_000) continue
     if (at > latestMs) {
@@ -81,10 +86,11 @@ export function latestEntry(entries: LogEntry[], now: Date): LogEntry | null {
   return latest
 }
 
-/** Whether a log entry made in the `hours` before `at` keeps a target active then. */
+/** Whether a target set in the `hours` before `at` is still active then. Readings on their own do not count. */
 export function hasActiveTarget(entries: LogEntry[], at: Date, hours: number): boolean {
   const since = at.getTime() - hours * 60 * 60 * 1000
   return entries.some((entry) => {
+    if (!hasTarget(entry)) return false
     const time = Date.parse(entry.at)
     return Number.isFinite(time) && time > since && time <= at.getTime()
   })
@@ -107,16 +113,15 @@ function atLocalTime(day: Date, time: string): Date {
   return at
 }
 
-function expiryReminder(entry: LogEntry, hours: number, describeTime: (entry: LogEntry) => string): Reminder {
+function expiryReminder(entry: LogEntry, hours: number): Reminder {
   const hoursText = hours === 1 ? '1 hour' : `${hours} hours`
   return {
     kind: 'expiry',
     title: 'Time to update your target',
-    body: entry.insulinUnits > 0
+    body:
+      entry.insulinUnits > 0
         ? 'Your last bolus should be wearing off - please test again and update your target.'
-        : (!!entry.carbsGrams)
-            ? `It's been ${hoursText} since you ate - please test again and update your target.`
-            : `You last updated your Glucose reading log at ${describeTime(entry)} - Check your target is still valid.`,
+        : `It's been ${hoursText} since you ate - please test again and update your target.`,
     tag: 'target-expiry',
   }
 }
@@ -157,21 +162,20 @@ export function scheduledReminders(
   settings: ReminderSettings,
   sent: ReminderLog,
   now: Date,
-  describeTime: (entry: LogEntry) => string,
 ): ScheduledReminder[] {
   if (!settings.expiryEnabled || !settings.notify) return []
   const hours = settings.expiryHours
   const hourMs = 60 * 60 * 1000
   const nowMs = now.getTime()
   const bookedReminders: ScheduledReminder[] = []
-  const latest = latestEntry(entries, now)
+  const latest = latestTargetEntry(entries, now)
   let upcomingExpiry: number | null = null
 
   if (settings.remindOnExpiry && latest && latest.id !== sent.expiryEntryId) {
     const expiresAt = Date.parse(latest.at) + hours * hourMs
     if (nowMs - expiresAt <= REMINDER_GRACE_MS) {
       upcomingExpiry = expiresAt
-      bookedReminders.push(booked('expiry', expiresAt, expiryReminder(latest, hours, describeTime)))
+      bookedReminders.push(booked('expiry', expiresAt, expiryReminder(latest, hours)))
     }
   }
 
@@ -201,7 +205,6 @@ export function dueReminders(
   settings: ReminderSettings,
   sent: ReminderLog,
   now: Date,
-  describeTime: (entry: LogEntry) => string,
 ): { reminders: Reminder[]; sent: ReminderLog } {
   if (!settings.expiryEnabled || !settings.notify) return { reminders: [], sent }
   const reminders: Reminder[] = []
@@ -210,13 +213,13 @@ export function dueReminders(
   const hourMs = 60 * 60 * 1000
   const nowMs = now.getTime()
 
-  const latest = latestEntry(entries, now)
+  const latest = latestTargetEntry(entries, now)
   if (latest && latest.id !== next.expiryEntryId) {
     const expiresAt = Date.parse(latest.at) + hours * hourMs
     if (nowMs >= expiresAt) {
       next.expiryEntryId = latest.id
       if (settings.remindOnExpiry && nowMs - expiresAt <= REMINDER_GRACE_MS) {
-        reminders.push(expiryReminder(latest, hours, describeTime))
+        reminders.push(expiryReminder(latest, hours))
         next.expirySentAt = nowMs
       }
     }

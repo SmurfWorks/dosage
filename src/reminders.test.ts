@@ -35,11 +35,15 @@ function entry(id: string, when: Date, insulinUnits = 3): LogEntry {
   }
 }
 
+/** A glucose reading with no carbs or bolus, which carries the earlier target forward. */
+function reading(id: string, when: Date): LogEntry {
+  return { ...entry(id, when, 0), carbsGrams: 0, targetMmol: null }
+}
+
 const on: ReminderSettings = { ...DEFAULT_REMINDER_SETTINGS, expiryEnabled: true, notify: true }
-const describe12 = (item: LogEntry) => (item.id === 'lunch' ? '12:00 pm' : item.id)
 
 function run(entries: LogEntry[], settings: ReminderSettings, sent: ReminderLog, now: Date) {
-  return dueReminders(entries, settings, sent, now, describe12)
+  return dueReminders(entries, settings, sent, now)
 }
 
 describe('target expiry', () => {
@@ -48,11 +52,16 @@ describe('target expiry', () => {
     expect(activeHours({ ...on, expiryEnabled: false, expiryHours: 3 })).toBe(4)
   })
 
-  it('counts any entry in the expiry window as an active target', () => {
+  it('counts a target set in the expiry window as an active target', () => {
     const entries = [entry('lunch', at(12))]
     expect(hasActiveTarget(entries, at(15, 59), 4)).toBe(true)
     expect(hasActiveTarget(entries, at(16), 4)).toBe(false)
     expect(hasActiveTarget(entries, at(11, 59), 4)).toBe(false)
+  })
+
+  it('does not count a reading logged on its own as an active target', () => {
+    const entries = [entry('lunch', at(12)), reading('check', at(15))]
+    expect(hasActiveTarget(entries, at(17), 4)).toBe(false)
   })
 })
 
@@ -86,11 +95,14 @@ describe('expiry reminder', () => {
     )
   })
 
-  it('gives the time of the entry when it had neither carbs nor a bolus', () => {
-    const checkIn = [{ ...entry('lunch', at(12), 0), carbsGrams: 0 }]
-    expect(run(checkIn, on, EMPTY_REMINDER_LOG, at(16)).reminders[0].body).toBe(
-      'You last updated your Glucose reading log at 12:00 pm - Check your target is still valid.',
-    )
+  it('keeps the expiry of the last target when a reading is logged after it', () => {
+    const withReading = [...entries, reading('check', at(14))]
+    expect(run(withReading, on, EMPTY_REMINDER_LOG, at(16, 1)).reminders).toHaveLength(1)
+    expect(scheduledReminders(withReading, on, EMPTY_REMINDER_LOG, at(15))[0].deliverAt).toBe(at(16).toISOString())
+  })
+
+  it('sends no expiry reminder for readings alone', () => {
+    expect(run([reading('check', at(12))], on, EMPTY_REMINDER_LOG, at(16)).reminders).toEqual([])
   })
 
   it('drops an expiry it missed by more than 30 minutes', () => {
@@ -185,7 +197,7 @@ describe('reminders booked on the server', () => {
   const entries = [entry('lunch', at(12))]
 
   it('books the expiry at the moment the target expires, with the same words', () => {
-    expect(scheduledReminders(entries, on, EMPTY_REMINDER_LOG, at(13), describe12)).toEqual([
+    expect(scheduledReminders(entries, on, EMPTY_REMINDER_LOG, at(13))).toEqual([
       {
         key: 'expiry',
         deliverAt: at(16).toISOString(),
@@ -197,20 +209,20 @@ describe('reminders booked on the server', () => {
   })
 
   it('still books an expiry inside the 30 minute grace, and drops one that is later', () => {
-    expect(scheduledReminders(entries, on, EMPTY_REMINDER_LOG, at(16, 10), describe12)[0].deliverAt).toBe(
+    expect(scheduledReminders(entries, on, EMPTY_REMINDER_LOG, at(16, 10))[0].deliverAt).toBe(
       at(16).toISOString(),
     )
-    expect(scheduledReminders(entries, on, EMPTY_REMINDER_LOG, at(16, 31), describe12)).toEqual([])
+    expect(scheduledReminders(entries, on, EMPTY_REMINDER_LOG, at(16, 31))).toEqual([])
   })
 
   it('does not book an expiry that has already been dealt with', () => {
     const sent = { ...EMPTY_REMINDER_LOG, expiryEntryId: 'lunch' }
-    expect(scheduledReminders(entries, on, sent, at(13), describe12)).toEqual([])
+    expect(scheduledReminders(entries, on, sent, at(13))).toEqual([])
   })
 
   it('books each timed reminder for the next 7 days when no target is active', () => {
     const settings = { ...on, remindOnExpiry: false, times: ['09:00'] }
-    const booked = scheduledReminders([], settings, EMPTY_REMINDER_LOG, at(8), () => '')
+    const booked = scheduledReminders([], settings, EMPTY_REMINDER_LOG, at(8))
     expect(booked.map((item) => item.deliverAt)).toEqual([
       at(9, 0, 8).toISOString(),
       at(9, 0, 9).toISOString(),
@@ -229,7 +241,7 @@ describe('reminders booked on the server', () => {
 
   it('skips a time covered by an active target, and the hour after an expiry', () => {
     const settings = { ...on, times: ['15:00', '16:30', '17:01'] }
-    const keys = scheduledReminders(entries, settings, EMPTY_REMINDER_LOG, at(13), describe12).map((item) => item.key)
+    const keys = scheduledReminders(entries, settings, EMPTY_REMINDER_LOG, at(13)).map((item) => item.key)
     expect(keys).toContain('expiry')
     expect(keys).not.toContain('time-2026-10-08-15:00')
     expect(keys).not.toContain('time-2026-10-08-16:30')
@@ -241,14 +253,14 @@ describe('reminders booked on the server', () => {
   it('does not book a time already dealt with today', () => {
     const settings = { ...on, remindOnExpiry: false, times: ['09:00'] }
     const sent = { ...EMPTY_REMINDER_LOG, timesHandled: ['2026-10-08 09:00'] }
-    const keys = scheduledReminders([], settings, sent, at(9, 10), () => '').map((item) => item.key)
+    const keys = scheduledReminders([], settings, sent, at(9, 10)).map((item) => item.key)
     expect(keys).not.toContain('time-2026-10-08-09:00')
     expect(keys).toContain('time-2026-10-09-09:00')
   })
 
   it('books nothing when reminders are off', () => {
-    expect(scheduledReminders(entries, { ...on, notify: false }, EMPTY_REMINDER_LOG, at(13), describe12)).toEqual([])
-    expect(scheduledReminders(entries, { ...on, expiryEnabled: false }, EMPTY_REMINDER_LOG, at(13), describe12)).toEqual(
+    expect(scheduledReminders(entries, { ...on, notify: false }, EMPTY_REMINDER_LOG, at(13))).toEqual([])
+    expect(scheduledReminders(entries, { ...on, expiryEnabled: false }, EMPTY_REMINDER_LOG, at(13))).toEqual(
       [],
     )
   })
