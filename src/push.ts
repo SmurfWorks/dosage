@@ -25,6 +25,11 @@ export function pushAuth(url: string, token: string): PushAuth | null {
   return { baseUrl, token: trimmedToken }
 }
 
+/** Scheme, host and port of a page, without the path. `https://smurfworks.github.io/dosage/` is `https://smurfworks.github.io`. */
+export function pageOrigin(pageUrl: string): string {
+  return new URL(pageUrl).origin
+}
+
 /** A secure page cannot call an http server, so booking waits until the address is https. */
 export function pushUrlIsReachable(baseUrl: string, pageProtocol: string): boolean {
   try {
@@ -82,6 +87,20 @@ export function forgetPushDevice() {
   storage()?.removeItem(DEVICE_KEY)
 }
 
+export type PushConnection = { ok: true } | { ok: false; message: string }
+
+/** Confirms the address and token are accepted. A list of devices is enough; nothing is booked. */
+export async function checkPushConnection(auth: PushAuth, fetchImpl: typeof fetch = fetch): Promise<PushConnection> {
+  try {
+    const response = await fetchImpl(`${auth.baseUrl}/api/devices`, { headers: authHeaders(auth) })
+    if (response.status === 401) return { ok: false, message: 'That reminder server token was not accepted.' }
+    if (!response.ok) return { ok: false, message: `The reminder server responded ${response.status}.` }
+    return { ok: true }
+  } catch {
+    return { ok: false, message: 'Dosage Helper could not reach that reminder server.' }
+  }
+}
+
 function authHeaders(auth: PushAuth, json = false): HeadersInit {
   return {
     Authorization: `Bearer ${auth.token}`,
@@ -95,6 +114,7 @@ async function asJson(response: Response, forgetOnMissing = false): Promise<unkn
     forgetPushDevice()
     throw new Error('This phone is no longer registered for reminders.')
   }
+  if (response.status === 422) throw new Error("Register this app's origin on the reminder server.")
   if (!response.ok) throw new Error(`The reminder server responded ${response.status}.`)
   if (response.status === 204) return null
   const text = await response.text()

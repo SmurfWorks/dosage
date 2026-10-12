@@ -2056,7 +2056,8 @@ html.is-sliding .app-view.is-open { overflow-y: hidden; }
 }
 
 .expiry-hours[hidden],
-.reminder-options[hidden] { display: none; }
+.reminder-options[hidden],
+.reminder-rules[hidden] { display: none; }
 
 .reminder-server {
   display: grid;
@@ -2065,6 +2066,27 @@ html.is-sliding .app-view.is-open { overflow-y: hidden; }
   border: 1.5px solid var(--line);
   border-radius: 16px;
   background: var(--field-sunk);
+}
+
+.reminder-server.is-invalid {
+  border-color: var(--warn);
+}
+
+.reminder-origin {
+  margin: 0;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.reminder-origin strong {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.reminder-server .reminder-error {
+  margin: 0;
+  color: var(--warn);
+  font-weight: 650;
 }
 
 .reminder-server label {
@@ -2088,13 +2110,15 @@ html.is-sliding .app-view.is-open { overflow-y: hidden; }
   margin-top: 14px;
 }
 
-.reminder-options {
+.reminder-options,
+.reminder-rules {
   display: grid;
   gap: 10px;
-  margin-top: 14px;
 }
 
-.reminder-options .control-label {
+.reminder-options { margin-top: 14px; }
+
+.reminder-rules .control-label {
   margin: 6px 0 0;
 }
 

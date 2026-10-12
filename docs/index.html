@@ -16,8 +16,8 @@
   <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
   <title>Dosage Helper</title>
-  <script type="module" crossorigin src="./assets/app-uGpTJVZI.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/app-Bsj_WOAk.css">
+  <script type="module" crossorigin src="./assets/app-BmgghX98.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/app-QuBgu4dB.css">
 <link rel="manifest" href="./manifest.webmanifest"></head>
 
 <body>
@@ -388,7 +388,9 @@
               <p id="notify-status" class="hint">Reminders are sent from your reminder server, including while Dosage
                 Helper is closed.</p>
               <div id="reminder-options" class="reminder-options" hidden>
-                <div class="reminder-server">
+                <div id="reminder-server" class="reminder-server">
+                  <p class="hint reminder-origin">This app's origin is <strong id="push-origin"></strong>. Register
+                    that origin on your reminder server.</p>
                   <div>
                     <label for="push-url">Reminder server address</label>
                     <div class="field">
@@ -401,16 +403,19 @@
                       <input id="push-token" type="text" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="Token from your PWA Push app" />
                     </div>
                   </div>
+                  <p id="push-error" class="hint reminder-error" role="alert" hidden></p>
                 </div>
-                <label class="check" for="remind-expiry">
-                  <input id="remind-expiry" type="checkbox" checked />
-                  Remind me when my target expires
-                </label>
-                <p id="reminder-times-label" class="control-label">Remind me at the following times if I don't have
-                  an active target</p>
-                <ul id="reminder-times" class="reminder-times" aria-labelledby="reminder-times-label"></ul>
-                <button id="reminder-add" class="reminder-add" type="button">+ Add a time</button>
-                <p class="hint">A timed reminder waits if you had a target expiry reminder in the last hour.</p>
+                <div id="reminder-rules" class="reminder-rules" hidden>
+                  <label class="check" for="remind-expiry">
+                    <input id="remind-expiry" type="checkbox" checked />
+                    Remind me when my target expires
+                  </label>
+                  <p id="reminder-times-label" class="control-label">Remind me at the following times if I don't have
+                    an active target</p>
+                  <ul id="reminder-times" class="reminder-times" aria-labelledby="reminder-times-label"></ul>
+                  <button id="reminder-add" class="reminder-add" type="button">+ Add a time</button>
+                  <p class="hint">A timed reminder waits if you had a target expiry reminder in the last hour.</p>
+                </div>
               </div>
             </div>
             <div class="card settings-group">

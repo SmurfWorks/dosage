@@ -1,6 +1,6 @@
 import { appleHandheld, currentBrowser } from './device'
 import { browserTimeZone, formatLogTime, loadLog } from './log'
-import { ensurePushDevice, forgetPushDevice, pushAuth, pushUrlIsReachable, replaceNotifications, storedPushDeviceId, type BookedNotification, type PushAuth } from './push'
+import { checkPushConnection, ensurePushDevice, forgetPushDevice, pageOrigin, pushAuth, pushUrlIsReachable, replaceNotifications, storedPushDeviceId, type BookedNotification, type PushAuth } from './push'
 import {
   activeHours,
   DEFAULT_REMINDER_SETTINGS,
@@ -75,6 +75,10 @@ export function createRemindersView(onHoursChange: () => void): RemindersView {
   const notify = element<HTMLInputElement>('#notify-enabled')
   const status = element<HTMLElement>('#notify-status')
   const options = element<HTMLElement>('#reminder-options')
+  const server = element<HTMLElement>('#reminder-server')
+  const rules = element<HTMLElement>('#reminder-rules')
+  const pushError = element<HTMLElement>('#push-error')
+  const pushOrigin = element<HTMLElement>('#push-origin')
   const remindExpiry = element<HTMLInputElement>('#remind-expiry')
   const pushUrl = element<HTMLInputElement>('#push-url')
   const pushToken = element<HTMLInputElement>('#push-token')
@@ -82,8 +86,10 @@ export function createRemindersView(onHoursChange: () => void): RemindersView {
   const addTime = element<HTMLButtonElement>('#reminder-add')
 
   let settings = read(SETTINGS_KEY, parseReminderSettings)
-  let remoteReady = false
+  const openedAuth = pushAuth(settings.pushUrl, settings.pushToken)
+  let remoteReady = openedAuth !== null && storedPushDeviceId(openedAuth) !== null
   let remoteFailed = false
+  let connectionError = ''
   let lastBooked = ''
   let booking: Promise<void> = Promise.resolve()
 
@@ -98,6 +104,12 @@ export function createRemindersView(onHoursChange: () => void): RemindersView {
     }
     const nextAuth = pushAuth(nextSettings.pushUrl, nextSettings.pushToken)
     const serverChanged = previousAuth?.baseUrl !== nextAuth?.baseUrl || previousAuth?.token !== nextAuth?.token
+    if (serverChanged) {
+      remoteReady = false
+      remoteFailed = false
+      connectionError = ''
+      lastBooked = ''
+    }
     settings = nextSettings
     write(SETTINGS_KEY, settings)
     paint()
@@ -113,6 +125,24 @@ export function createRemindersView(onHoursChange: () => void): RemindersView {
       .catch(markFailed)
   }
 
+  function localConnectionError(): string {
+    if (!settings.notify || !notificationsSupported() || Notification.permission !== 'granted') return ''
+    const hasUrl = settings.pushUrl !== ''
+    const hasToken = settings.pushToken !== ''
+    if (!hasUrl && !hasToken) return ''
+    if (!hasUrl || !hasToken) return 'Enter your reminder server address and token.'
+    const auth = pushAuth(settings.pushUrl, settings.pushToken)
+    if (!auth) return 'Enter a reminder server address like https://example.com.'
+    if (!pushUrlIsReachable(auth.baseUrl, location.protocol)) {
+      return 'Use an https address. This page cannot reach an http reminder server.'
+    }
+    return ''
+  }
+
+  function shownError(): string {
+    return localConnectionError() || (remoteFailed ? connectionError : '')
+  }
+
   function statusText(): string {
     if (!notificationsSupported()) {
       return appleHandheld(currentBrowser())
@@ -125,17 +155,12 @@ export function createRemindersView(onHoursChange: () => void): RemindersView {
     if (!settings.notify || Notification.permission !== 'granted') {
       return 'Turn on Send reminders to book them on your reminder server.'
     }
-    const auth = pushAuth(settings.pushUrl, settings.pushToken)
     if (!settings.pushUrl || !settings.pushToken) {
       return 'Enter your reminder server address and token. Reminders are sent from that server.'
     }
-    if (!auth) return 'Enter a reminder server address like https://example.com.'
-    if (!pushUrlIsReachable(auth.baseUrl, location.protocol)) {
-      return 'Use an https address. This page cannot reach an http reminder server.'
-    }
-    if (remoteFailed) return 'Dosage Helper could not book reminders with that server.'
+    if (shownError()) return ''
     if (remoteReady) return 'Reminders are sent from your reminder server, including while Dosage Helper is closed.'
-    return 'Dosage Helper is booking these reminders on your reminder server.'
+    return 'Dosage Helper is checking that reminder server.'
   }
 
   function paint() {
@@ -147,7 +172,16 @@ export function createRemindersView(onHoursChange: () => void): RemindersView {
     notify.disabled = !notificationsSupported()
     notify.checked = settings.notify && canNotify && Notification.permission === 'granted'
     status.textContent = statusText()
+    status.hidden = status.textContent === ''
     options.hidden = !notify.checked
+    const error = shownError()
+    pushError.hidden = error === ''
+    pushError.textContent = error
+    server.classList.toggle('is-invalid', error !== '')
+    pushUrl.setAttribute('aria-invalid', error === '' ? 'false' : 'true')
+    pushToken.setAttribute('aria-invalid', error === '' ? 'false' : 'true')
+    rules.hidden = !notify.checked || !remoteReady
+    pushOrigin.textContent = pageOrigin(location.href)
     remindExpiry.checked = settings.remindOnExpiry
     if (document.activeElement !== pushUrl) pushUrl.value = settings.pushUrl
     if (document.activeElement !== pushToken) pushToken.value = settings.pushToken
@@ -163,21 +197,18 @@ export function createRemindersView(onHoursChange: () => void): RemindersView {
     return formatLogTime(entry.at, entry.timeZone || browserTimeZone())
   }
 
-  function setRemote(ready: boolean) {
-    remoteFailed = false
-    if (remoteReady === ready) {
-      status.textContent = statusText()
-      return
-    }
+  function showConnection(ready: boolean, error = '') {
+    const same = remoteReady === ready && remoteFailed === (error !== '') && connectionError === error
     remoteReady = ready
-    status.textContent = statusText()
+    remoteFailed = error !== ''
+    connectionError = error
+    if (!same) paint()
   }
 
-  function markFailed() {
+  function markFailed(error?: unknown) {
     lastBooked = ''
-    remoteReady = false
-    remoteFailed = true
-    status.textContent = statusText()
+    const message = error instanceof Error ? error.message : 'Dosage Helper could not book reminders with that server.'
+    showConnection(false, message)
   }
 
   async function releaseServer(auth: PushAuth | null) {
@@ -194,28 +225,51 @@ export function createRemindersView(onHoursChange: () => void): RemindersView {
 
   async function syncBookings() {
     const auth = pushAuth(settings.pushUrl, settings.pushToken)
-    if (!auth || !pushUrlIsReachable(auth.baseUrl, location.protocol)) {
-      setRemote(false)
+    if (!settings.notify) {
+      if (auth && pushUrlIsReachable(auth.baseUrl, location.protocol)) {
+        const deviceId = storedPushDeviceId(auth)
+        if (deviceId) await replaceNotifications(auth, deviceId, [])
+      }
+      lastBooked = ''
+      showConnection(false)
       return
     }
+    const local = localConnectionError()
+    if (local) {
+      showConnection(false, local)
+      return
+    }
+    if (!auth || !pushUrlIsReachable(auth.baseUrl, location.protocol)) {
+      showConnection(false)
+      return
+    }
+    const connection = await checkPushConnection(auth)
+    if (!connection.ok) {
+      showConnection(false, connection.message)
+      return
+    }
+    showConnection(true)
     const sent = read(SENT_KEY, parseReminderLog)
     const links = {
       url: new URL('./', document.baseURI).href,
       icon: new URL('icons/icon-192.png', document.baseURI).href,
     }
-    const wanted: BookedNotification[] = settings.notify
-      ? scheduledReminders(loadLog(), settings, sent, new Date(), describeEntry).map((item) => ({ ...item, ...links }))
-      : []
+    const wanted: BookedNotification[] = scheduledReminders(loadLog(), settings, sent, new Date(), describeEntry).map(
+      (item) => ({ ...item, ...links }),
+    )
     const plan = JSON.stringify(wanted)
     if (plan === lastBooked) return
-    const deviceId = settings.notify ? await ensurePushDevice(auth) : storedPushDeviceId(auth)
-    if (!deviceId) {
-      if (!settings.notify) lastBooked = plan
+    const deviceId = await ensurePushDevice(auth)
+    if (!deviceId) return
+    try {
+      await replaceNotifications(auth, deviceId, wanted)
+    } catch (error) {
+      lastBooked = ''
+      showConnection(true, error instanceof Error ? error.message : 'Dosage Helper could not book reminders with that server.')
       return
     }
-    await replaceNotifications(auth, deviceId, wanted)
     lastBooked = plan
-    setRemote(settings.notify)
+    showConnection(true)
   }
 
   function check() {

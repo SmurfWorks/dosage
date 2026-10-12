@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applicationServerKey, pushAuth, pushUrlIsReachable, replaceNotifications, type BookedNotification } from './push'
+import { applicationServerKey, checkPushConnection, pageOrigin, pushAuth, pushUrlIsReachable, replaceNotifications, type BookedNotification } from './push'
 
 const auth = { baseUrl: 'http://push.example', token: 'app-token' }
 
@@ -25,6 +25,27 @@ describe('push server', () => {
     expect(pushAuth('http://170.64.193.163/', ' token ')).toEqual({
       baseUrl: 'http://170.64.193.163',
       token: 'token',
+    })
+    expect(pageOrigin('https://smurfworks.github.io/dosage/')).toBe('https://smurfworks.github.io')
+    expect(pageOrigin('http://localhost:5173/')).toBe('http://localhost:5173')
+  })
+
+  it('accepts a reminder server when the token is known, and says when it is not', async () => {
+    const fetchImpl = (async () => response(200, { devices: [] })) as typeof fetch
+    await expect(checkPushConnection(auth, fetchImpl)).resolves.toEqual({ ok: true })
+
+    const rejected = (async () => response(401, { message: 'Unknown app token.' })) as typeof fetch
+    await expect(checkPushConnection(auth, rejected)).resolves.toEqual({
+      ok: false,
+      message: 'That reminder server token was not accepted.',
+    })
+
+    const offline = (async () => {
+      throw new TypeError('Failed to fetch')
+    }) as typeof fetch
+    await expect(checkPushConnection(auth, offline)).resolves.toEqual({
+      ok: false,
+      message: 'Dosage Helper could not reach that reminder server.',
     })
   })
 
