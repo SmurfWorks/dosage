@@ -1469,8 +1469,8 @@ function storeLogEntry(payload: {
   saveLog(entries)
   carbsInput.value = '0'
   fibreInput.value = '0'
-  includeCarbsInput.checked = true
-  includeInsulinInput.checked = true
+  includeCarbsInput.checked = false
+  includeInsulinInput.checked = false
   entryNote.value = ''
   entryNoteDetails.open = false
   withBasalInput.checked = false
