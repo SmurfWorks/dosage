@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import {
   createDish,
+  DISH_PORTIONS,
   editDish,
   findDishes,
   formatPortion,
@@ -109,6 +110,9 @@ describe('dishes', () => {
     expect(pickedGrams({ carbsGrams: 30, fibreGrams: 2 }, porridge, 1, false)).toEqual({ carbsGrams: 45, fibreGrams: 6 })
     expect(pickedGrams({ carbsGrams: 0, fibreGrams: 0 }, porridge, 0.5, false)).toEqual({ carbsGrams: 22.5, fibreGrams: 3 })
     expect(pickedGrams({ carbsGrams: 0, fibreGrams: 0 }, porridge, 1.5, false)).toEqual({ carbsGrams: 67.5, fibreGrams: 9 })
+    expect(pickedGrams({ carbsGrams: 0, fibreGrams: 0 }, porridge, 0.125, false)).toEqual({ carbsGrams: 5.6, fibreGrams: 0.8 })
+    expect(pickedGrams({ carbsGrams: 0, fibreGrams: 0 }, porridge, 0.25, false)).toEqual({ carbsGrams: 11.3, fibreGrams: 1.5 })
+    expect(pickedGrams({ carbsGrams: 0, fibreGrams: 0 }, porridge, 4, false)).toEqual({ carbsGrams: 180, fibreGrams: 24 })
   })
 
   it('adds a portion of a dish to what is entered', () => {
@@ -118,6 +122,6 @@ describe('dishes', () => {
   })
 
   it('names portions with fractions', () => {
-    expect([0.5, 1, 1.5, 2].map((portion) => formatPortion(portion as 0.5 | 1 | 1.5 | 2))).toEqual(['½', '1', '1½', '2'])
+    expect(DISH_PORTIONS.map(formatPortion)).toEqual(['⅛', '¼', '½', '1', '1½', '2', '3', '4'])
   })
 })

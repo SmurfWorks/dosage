@@ -44,7 +44,7 @@ export function editDish(
   return { ok: true, dishes: sortDishes(dishes.map((dish) => (dish.id === id ? edited : dish))) }
 }
 
-export const DISH_PORTIONS = [0.5, 1, 1.5, 2] as const
+export const DISH_PORTIONS = [0.125, 0.25, 0.5, 1, 1.5, 2, 3, 4] as const
 export type DishPortion = (typeof DISH_PORTIONS)[number]
 
 export type DishGrams = { carbsGrams: number; fibreGrams: number }
@@ -61,8 +61,10 @@ export function pickedGrams(current: DishGrams, dish: Dish, portion: DishPortion
   return { carbsGrams: round(current.carbsGrams + carbs), fibreGrams: round(current.fibreGrams + fibre) }
 }
 
+const PORTION_NAMES: Partial<Record<DishPortion, string>> = { 0.125: '⅛', 0.25: '¼', 0.5: '½', 1.5: '1½' }
+
 export function formatPortion(portion: DishPortion): string {
-  return portion === 0.5 ? '½' : portion === 1.5 ? '1½' : String(portion)
+  return PORTION_NAMES[portion] ?? String(portion)
 }
 
 export function recordDishUse(dishes: Dish[], id: string): Dish[] {
