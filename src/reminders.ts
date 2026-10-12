@@ -109,11 +109,14 @@ function atLocalTime(day: Date, time: string): Date {
 
 function expiryReminder(entry: LogEntry, hours: number, describeTime: (entry: LogEntry) => string): Reminder {
   const hoursText = hours === 1 ? '1 hour' : `${hours} hours`
-  const since = `It's been ${hoursText} since your ${describeTime(entry)} entry`
   return {
     kind: 'expiry',
-    title: 'Your target has expired',
-    body: entry.insulinUnits > 0 ? `${since}, so that bolus could be wearing off.` : `${since}.`,
+    title: 'Time to update your target',
+    body: entry.insulinUnits > 0
+        ? 'Your last bolus should be wearing off - please test again and update your target.'
+        : (!!entry.carbsGrams)
+            ? `It's been ${hoursText} since you ate - please test again and update your target.`
+            : `You last updated your Glucose reading log at ${describeTime(entry)} - Check your target is still valid.`,
     tag: 'target-expiry',
   }
 }

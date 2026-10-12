@@ -63,8 +63,8 @@ describe('expiry reminder', () => {
     expect(first.reminders).toEqual([
       {
         kind: 'expiry',
-        title: 'Your target has expired',
-        body: "It's been 4 hours since your 12:00 pm entry, so that bolus could be wearing off.",
+        title: 'Time to update your target',
+        body: 'Your last bolus should be wearing off - please test again and update your target.',
         tag: 'target-expiry',
       },
     ])
@@ -72,10 +72,22 @@ describe('expiry reminder', () => {
     expect(run(entries, on, first.sent, at(16, 5)).reminders).toEqual([])
   })
 
-  it('leaves out the bolus when the entry had none, and follows the hours setting', () => {
-    const checkIn = [entry('lunch', at(12), 0)]
-    expect(run(checkIn, { ...on, expiryHours: 1 }, EMPTY_REMINDER_LOG, at(13)).reminders[0].body).toBe(
-      "It's been 1 hour since your 12:00 pm entry.",
+  it('leaves the bolus amount out, so the reminder server never sees a dose', () => {
+    const one = [entry('lunch', at(12), 1.5)]
+    expect(run(one, on, EMPTY_REMINDER_LOG, at(16)).reminders[0].body).not.toMatch(/\d/)
+  })
+
+  it('talks about the meal when the entry had carbs but no bolus, and follows the hours setting', () => {
+    const meal = [entry('lunch', at(12), 0)]
+    expect(run(meal, { ...on, expiryHours: 1 }, EMPTY_REMINDER_LOG, at(13)).reminders[0].body).toBe(
+      "It's been 1 hour since you ate - please test again and update your target.",
+    )
+  })
+
+  it('gives the time of the entry when it had neither carbs nor a bolus', () => {
+    const checkIn = [{ ...entry('lunch', at(12), 0), carbsGrams: 0 }]
+    expect(run(checkIn, on, EMPTY_REMINDER_LOG, at(16)).reminders[0].body).toBe(
+      'You last updated your Glucose reading log at 12:00 pm - Check your target is still valid.',
     )
   })
 
@@ -175,8 +187,8 @@ describe('reminders booked on the server', () => {
       {
         key: 'expiry',
         deliverAt: at(16).toISOString(),
-        title: 'Your target has expired',
-        body: "It's been 4 hours since your 12:00 pm entry, so that bolus could be wearing off.",
+        title: 'Time to update your target',
+        body: 'Your last bolus should be wearing off - please test again and update your target.',
         tag: 'target-expiry',
       },
     ])

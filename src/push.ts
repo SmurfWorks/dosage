@@ -208,11 +208,13 @@ export async function replaceNotifications(
     await fetchImpl(root, { headers: authHeaders(auth) }),
     true,
   )) as {
-    notifications?: { key: string }[]
+    notifications?: { key: string; status?: string }[]
   }
   const keys = new Set(wanted.map((item) => item.key))
   for (const existing of current.notifications ?? []) {
     if (keys.has(existing.key)) continue
+    // A reminder already sent or skipped stays on the server as a record of when it went out.
+    if (existing.status === 'sent' || existing.status === 'skipped') continue
     const removed = await fetchImpl(`${root}/${encodeURIComponent(existing.key)}`, {
       method: 'DELETE',
       headers: authHeaders(auth),

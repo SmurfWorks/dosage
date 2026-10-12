@@ -49,14 +49,14 @@ describe('push server', () => {
     })
   })
 
-  it('replaces the booked reminders and drops ones that no longer apply', async () => {
+  it('replaces the booked reminders, drops waiting ones that no longer apply, and keeps ones already sent or skipped', async () => {
     const calls: { method: string; url: string; body?: unknown }[] = []
     const wanted: BookedNotification[] = [
       {
         key: 'expiry',
         deliverAt: '2026-10-12T16:00:00.000Z',
-        title: 'Your target has expired',
-        body: "It's been 4 hours since your 12:00 pm entry, so that bolus could be wearing off.",
+        title: 'Time to update your target',
+        body: 'Your last bolus should be wearing off - please test again and update your target.',
         tag: 'target-expiry',
         url: 'https://smurfworks.github.io/dosage/',
         icon: 'https://smurfworks.github.io/dosage/icons/icon-192.png',
@@ -73,7 +73,14 @@ describe('push server', () => {
       const method = init?.method ?? 'GET'
       const href = String(url)
       calls.push({ method, url: href, body: init?.body ? JSON.parse(String(init.body)) : undefined })
-      if (method === 'GET') return response(200, { notifications: [{ key: 'expiry' }, { key: 'old' }] })
+      if (method === 'GET') return response(200, {
+          notifications: [
+            { key: 'expiry', status: 'pending' },
+            { key: 'old', status: 'pending' },
+            { key: 'sent-earlier', status: 'sent' },
+            { key: 'skipped-earlier', status: 'skipped' },
+          ],
+        })
       return response(method === 'DELETE' ? 204 : 200, method === 'PUT' ? { key: 'ok' } : undefined)
     }) as typeof fetch
 
@@ -87,7 +94,7 @@ describe('push server', () => {
     ])
     expect(calls[2].body).toMatchObject({
       deliver_at: '2026-10-12T16:00:00.000Z',
-      title: 'Your target has expired',
+      title: 'Time to update your target',
       grace_minutes: 30,
       url: 'https://smurfworks.github.io/dosage/',
     })
