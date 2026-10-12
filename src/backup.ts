@@ -2,6 +2,7 @@ import { parseBasals, type Basal } from './basal'
 import { parseDishes, type Dish } from './dishes'
 import type { Settings } from './calculator'
 import { parseStoredLog, type LogEntry } from './log'
+import { parseSettingsHistory, type SettingsChange } from './settings-history'
 import type { GlucoseUnit } from './units'
 
 export const BACKUP_VERSION = 1
@@ -10,6 +11,8 @@ export type Routine = Settings & {
   glucoseUnit: GlucoseUnit
   showFibre: boolean
   basals: Basal[]
+  /** When each set of dose settings came into use. Backups made before this was recorded have none. */
+  settingsHistory: SettingsChange[]
 }
 
 export type Backup = {
@@ -112,6 +115,7 @@ function readRoutine(value: unknown): Routine | null {
     glucoseUnit: stored.glucoseUnit,
     showFibre: stored.showFibre,
     basals,
+    settingsHistory: parseSettingsHistory(stored.settingsHistory),
   }
 }
 

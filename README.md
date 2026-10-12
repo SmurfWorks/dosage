@@ -53,6 +53,8 @@ The defaults are a 4–8 mmol/L range, a 6 mmol/L target, 10 g of carbs raising 
 
 The routine, the log, and your dishes, with how often you pick each, are stored in this browser on this device only.
 
+Each time you change the target, the range, how much carbs raise or insulin lowers glucose, or the Bolus Dosage Increment, the date and time and the new values are kept with your routine. The settings you had before this was recorded count as in use from the start. A few quick changes in a row, with nothing logged in between, are kept as one change at the value you settled on. This is so a log entry can later be matched to the settings in use when it was made; nothing on screen shows it yet. It is included in backups, and **Delete all data** starts it again.
+
 **Backup to file** saves all of it to a JSON file, and **Restore from file** replaces what is on the device with a backup, after saying what it holds. Current Glucose Reading then follows the restored log. Backups made before dishes existed restore with no dishes. **Delete all data** clears the log and dishes and resets the routine, the timezone and the reminder settings.
 
 ## Install
@@ -82,6 +84,7 @@ The app is TypeScript with Vite and no framework. In `src`:
 | `timezone.ts` | Timezone names, starting with New Zealand and ordered by their offset from GMT |
 | `push.ts` | Registering this phone and its timezone with the reminder server, and booking notifications there |
 | `basal.ts` | The basal schedule and its history |
+| `settings-history.ts` | When each set of dose settings came into use |
 | `dishes.ts` | Dishes, their storage, search and pick counts |
 | `backup.ts` | Making and reading backup files |
 | `day-graph.ts` | The day graph in the log |

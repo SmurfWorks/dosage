@@ -22,6 +22,10 @@ function routine(overrides: Partial<Routine> = {}): Routine {
         ],
       },
     ],
+    settingsHistory: [
+      { rangeLow: 4, rangeHigh: 8, targetMmol: 6, mmolRisePer10g: 2.5, mmolFallPerUnit: 3, insulinStep: 0.1, from: '1970-01-01T00:00:00.000Z' },
+      { rangeLow: 4, rangeHigh: 8, targetMmol: 6, mmolRisePer10g: 3, mmolFallPerUnit: 3, insulinStep: 0.1, from: '2026-10-01T08:30:00.000Z' },
+    ],
     ...overrides,
   }
 }
@@ -98,6 +102,12 @@ describe('dosage backups', () => {
     const { dishes: _dishes, ...older } = createBackup(routine(), [entry()], [dish()], when)
     const parsed = parseBackup(JSON.parse(JSON.stringify(older)))
     expect(parsed.ok && parsed.backup.dishes).toEqual([])
+  })
+
+  it('restores a backup made before settings were recorded with no settings history', () => {
+    const { settingsHistory: _history, ...older } = routine()
+    const parsed = parseBackup(JSON.parse(JSON.stringify(createBackup(older as Routine, [entry()], [], when))))
+    expect(parsed.ok && parsed.backup.routine.settingsHistory).toEqual([])
   })
 
   it('rejects a dish that cannot be read', () => {

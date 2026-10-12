@@ -16,6 +16,7 @@ import {
   type BasalPeriod,
 } from './basal'
 import { calculate, DEFAULT_SETTINGS, type Calculation, type Settings } from './calculator'
+import { parseSettingsHistory, recordSettings, type SettingsChange } from './settings-history'
 import { dayGraphSvg } from './day-graph'
 import { currentBrowser, inSafari, installCopy, installedOnIos, installsManually } from './device'
 import { loadDishes, saveDishes } from './dishes'
@@ -367,7 +368,11 @@ function settingsAreValid(settings: Settings): boolean {
   return Object.values(settings).every((value) => Number.isFinite(value))
 }
 
+/** When each set of dose settings came into use, so a log entry can be matched to the settings behind it. */
+let settingsHistory: SettingsChange[] = []
+
 function loadSettings() {
+  settingsHistory = []
   try {
     const saved = localStorage.getItem(STORAGE_KEY)
     if (!saved) {
@@ -384,7 +389,9 @@ function loadSettings() {
       glucoseUnit?: string
       showFibre?: boolean
       basals?: unknown
+      settingsHistory?: unknown
     }
+    settingsHistory = parseSettingsHistory(parsed.settingsHistory)
     glucoseUnit = parsed.glucoseUnit === 'mgdl' ? 'mgdl' : 'mmol'
     showFibre = parsed.showFibre !== false
     paintBasalEditor(parseBasals(parsed.basals))
@@ -395,6 +402,8 @@ function loadSettings() {
     paintUnits()
     paintFibre()
     applySettings(merged)
+    // Settings saved before the history existed are recorded as in use from the start.
+    if (settingsHistory.length === 0) saveSettings()
   } catch {
     glucoseUnit = 'mmol'
     showFibre = true
@@ -521,12 +530,13 @@ function paintBasalEditor(basals: Basal[]) {
 }
 
 function readRoutine(): Routine {
-  return { ...readSettings(), glucoseUnit, showFibre, basals: readBasalRows() }
+  return { ...readSettings(), glucoseUnit, showFibre, basals: readBasalRows(), settingsHistory }
 }
 
 function applyRoutine(routine: Routine) {
   glucoseUnit = routine.glucoseUnit
   showFibre = routine.showFibre
+  settingsHistory = routine.settingsHistory
   paintBasalEditor(routine.basals)
   paintUnits()
   paintFibre()
@@ -537,9 +547,15 @@ function applyRoutine(routine: Routine) {
 function saveSettings() {
   const settings = readSettings()
   if (!settingsAreValid(settings)) return
+  settingsHistory = recordSettings(
+    settingsHistory,
+    settings,
+    new Date(),
+    loadLog().map((entry) => entry.at),
+  )
   localStorage.setItem(
     STORAGE_KEY,
-    JSON.stringify({ ...settings, glucoseUnit, showFibre, basals: readBasalRows() }),
+    JSON.stringify({ ...settings, glucoseUnit, showFibre, basals: readBasalRows(), settingsHistory }),
   )
 }
 
@@ -1349,6 +1365,7 @@ deleteConfirmButton.addEventListener('click', () => {
   paintFibre()
   paintBasalEditor([])
   withBasalInput.checked = false
+  settingsHistory = []
   applySettings({ ...DEFAULT_SETTINGS })
   saveSettings()
   saveLog([])
