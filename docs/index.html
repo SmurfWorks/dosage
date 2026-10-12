@@ -16,8 +16,8 @@
   <link rel="icon" href="./favicon.svg" type="image/svg+xml" />
   <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
   <title>Dosage Helper</title>
-  <script type="module" crossorigin src="./assets/app-Bi0fWaYj.js"></script>
-  <link rel="stylesheet" crossorigin href="./assets/app-BdJ2XH9V.css">
+  <script type="module" crossorigin src="./assets/app-uGpTJVZI.js"></script>
+  <link rel="stylesheet" crossorigin href="./assets/app-Bsj_WOAk.css">
 <link rel="manifest" href="./manifest.webmanifest"></head>
 
 <body>
@@ -385,9 +385,23 @@
                 <input id="notify-enabled" type="checkbox" />
                 Send reminders
               </label>
-              <p id="notify-status" class="hint">Reminders arrive while Dosage Helper is open or still running in the
-                background.</p>
+              <p id="notify-status" class="hint">Reminders are sent from your reminder server, including while Dosage
+                Helper is closed.</p>
               <div id="reminder-options" class="reminder-options" hidden>
+                <div class="reminder-server">
+                  <div>
+                    <label for="push-url">Reminder server address</label>
+                    <div class="field">
+                      <input id="push-url" type="text" inputmode="url" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="https://example.com" />
+                    </div>
+                  </div>
+                  <div>
+                    <label for="push-token">Reminder server token</label>
+                    <div class="field">
+                      <input id="push-token" type="text" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="Token from your PWA Push app" />
+                    </div>
+                  </div>
+                </div>
                 <label class="check" for="remind-expiry">
                   <input id="remind-expiry" type="checkbox" checked />
                   Remind me when my target expires

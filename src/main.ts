@@ -1333,6 +1333,7 @@ restoreConfirmButton.addEventListener('click', () => {
   saveDishes(backup.dishes)
   dishes.paint()
   syncCurrentStatus(true)
+  reminders.check()
   if (viewIsOpen(logDialog)) paintLog(backup.log)
   showToast('Restored your routine, log and dishes.')
 })
@@ -1466,6 +1467,7 @@ function storeLogEntry(payload: {
   entryNoteDetails.open = false
   withBasalInput.checked = false
   syncCurrentStatus(true)
+  reminders.check()
   selectedLogKey = logDateKey(entry.at, entry.timeZone)
   if (!addTime.value) addTime.value = currentClock().time
   paintLog(loadLog())
@@ -1573,6 +1575,7 @@ logAddForm.addEventListener('submit', (event) => {
   saveLog(entries)
   clearAddForm()
   syncCurrentStatus()
+  reminders.check()
   views.dismiss(logAddDialog)
   paintAddBasal()
   paintLog(loadLog())
@@ -1844,6 +1847,7 @@ logList.addEventListener('click', (event) => {
   if (!removed) return
   saveLog(loadLog().filter((entry) => entry.id !== removed.id))
   syncCurrentStatus()
+  reminders.check()
   paintLog(loadLog())
   showToast(`Removed the ${formatLogTime(removed.at, removed.timeZone)} entry.`, {
     label: 'Undo',
@@ -1851,6 +1855,7 @@ logList.addEventListener('click', (event) => {
       if (loadLog().some((entry) => entry.id === removed.id)) return
       saveLog([...loadLog(), removed])
       syncCurrentStatus()
+      reminders.check()
       if (viewIsOpen(logDialog)) paintLog(loadLog())
     },
   })

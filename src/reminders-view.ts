@@ -1,5 +1,6 @@
 import { appleHandheld, currentBrowser } from './device'
 import { browserTimeZone, formatLogTime, loadLog } from './log'
+import { ensurePushDevice, forgetPushDevice, pushAuth, pushUrlIsReachable, replaceNotifications, storedPushDeviceId, type BookedNotification, type PushAuth } from './push'
 import {
   activeHours,
   DEFAULT_REMINDER_SETTINGS,
@@ -8,20 +9,20 @@ import {
   normaliseTimes,
   parseReminderLog,
   parseReminderSettings,
-  type Reminder,
+  scheduledReminders,
   type ReminderSettings,
 } from './reminders'
 import { escapeHtml } from './text'
 
 const SETTINGS_KEY = 'insulin-calculator.reminders.v1'
 const SENT_KEY = 'insulin-calculator.reminders-sent.v1'
-/** Browsers slow timers in the background, so this is how often reminders are checked at best. */
+/** How often the booked reminders are brought in line with the clock and the log. */
 const CHECK_MS = 30_000
 
 export type RemindersView = {
   /** How long a target stays active, for the recent bolus warning. */
   activeHours(): number
-  /** Checks for due reminders now, such as after a log entry is saved. */
+  /** Checks the log and reminder settings, and books the result on the reminder server. */
   check(): void
   /** Puts the settings back to their defaults, for Delete all data. */
   reset(): void
@@ -62,19 +63,8 @@ function nextWholeHour(): string {
   return `${String((new Date().getHours() + 1) % 24).padStart(2, '0')}:00`
 }
 
-async function show(reminder: Reminder) {
-  const options: NotificationOptions = { body: reminder.body, tag: reminder.tag, icon: 'icons/icon-192.png' }
-  // Android only shows notifications through the service worker; elsewhere a plain notification works too.
-  const registration = await navigator.serviceWorker?.getRegistration()
-  if (registration) {
-    await registration.showNotification(reminder.title, options)
-    return
-  }
-  const notification = new Notification(reminder.title, options)
-  notification.addEventListener('click', () => {
-    window.focus()
-    notification.close()
-  })
+function cleanPushUrl(url: string): string {
+  return url.trim().replace(/\/+$/, '')
 }
 
 export function createRemindersView(onHoursChange: () => void): RemindersView {
@@ -86,18 +76,41 @@ export function createRemindersView(onHoursChange: () => void): RemindersView {
   const status = element<HTMLElement>('#notify-status')
   const options = element<HTMLElement>('#reminder-options')
   const remindExpiry = element<HTMLInputElement>('#remind-expiry')
+  const pushUrl = element<HTMLInputElement>('#push-url')
+  const pushToken = element<HTMLInputElement>('#push-token')
   const timesList = element<HTMLUListElement>('#reminder-times')
   const addTime = element<HTMLButtonElement>('#reminder-add')
 
   let settings = read(SETTINGS_KEY, parseReminderSettings)
+  let remoteReady = false
+  let remoteFailed = false
+  let lastBooked = ''
+  let booking: Promise<void> = Promise.resolve()
 
   function save(next: ReminderSettings) {
     const hoursChanged = activeHours(next) !== activeHours(settings)
-    settings = { ...next, times: normaliseTimes(next.times) }
+    const previousAuth = pushAuth(settings.pushUrl, settings.pushToken)
+    const nextSettings = {
+      ...next,
+      times: normaliseTimes(next.times),
+      pushUrl: cleanPushUrl(next.pushUrl),
+      pushToken: next.pushToken.trim(),
+    }
+    const nextAuth = pushAuth(nextSettings.pushUrl, nextSettings.pushToken)
+    const serverChanged = previousAuth?.baseUrl !== nextAuth?.baseUrl || previousAuth?.token !== nextAuth?.token
+    settings = nextSettings
     write(SETTINGS_KEY, settings)
     paint()
     if (hoursChanged) onHoursChange()
-    check()
+    if (!serverChanged) {
+      check()
+      return
+    }
+    lastBooked = ''
+    booking = booking
+      .then(() => releaseServer(previousAuth))
+      .then(() => syncBookings())
+      .catch(markFailed)
   }
 
   function statusText(): string {
@@ -109,7 +122,20 @@ export function createRemindersView(onHoursChange: () => void): RemindersView {
     if (Notification.permission === 'denied') {
       return 'Notifications are blocked for Dosage Helper. Allow them in your browser settings, then turn this on again.'
     }
-    return 'Reminders arrive while Dosage Helper is open or still running in the background.'
+    if (!settings.notify || Notification.permission !== 'granted') {
+      return 'Turn on Send reminders to book them on your reminder server.'
+    }
+    const auth = pushAuth(settings.pushUrl, settings.pushToken)
+    if (!settings.pushUrl || !settings.pushToken) {
+      return 'Enter your reminder server address and token. Reminders are sent from that server.'
+    }
+    if (!auth) return 'Enter a reminder server address like https://example.com.'
+    if (!pushUrlIsReachable(auth.baseUrl, location.protocol)) {
+      return 'Use an https address. This page cannot reach an http reminder server.'
+    }
+    if (remoteFailed) return 'Dosage Helper could not book reminders with that server.'
+    if (remoteReady) return 'Reminders are sent from your reminder server, including while Dosage Helper is closed.'
+    return 'Dosage Helper is booking these reminders on your reminder server.'
   }
 
   function paint() {
@@ -123,6 +149,8 @@ export function createRemindersView(onHoursChange: () => void): RemindersView {
     status.textContent = statusText()
     options.hidden = !notify.checked
     remindExpiry.checked = settings.remindOnExpiry
+    if (document.activeElement !== pushUrl) pushUrl.value = settings.pushUrl
+    if (document.activeElement !== pushToken) pushToken.value = settings.pushToken
     timesList.innerHTML = settings.times
       .map(
         (time) =>
@@ -131,19 +159,79 @@ export function createRemindersView(onHoursChange: () => void): RemindersView {
       .join('')
   }
 
-  function check() {
+  function describeEntry(entry: { at: string; timeZone: string }) {
+    return formatLogTime(entry.at, entry.timeZone || browserTimeZone())
+  }
+
+  function setRemote(ready: boolean) {
+    remoteFailed = false
+    if (remoteReady === ready) {
+      status.textContent = statusText()
+      return
+    }
+    remoteReady = ready
+    status.textContent = statusText()
+  }
+
+  function markFailed() {
+    lastBooked = ''
+    remoteReady = false
+    remoteFailed = true
+    status.textContent = statusText()
+  }
+
+  async function releaseServer(auth: PushAuth | null) {
+    if (!auth) return
+    const deviceId = storedPushDeviceId(auth)
+    forgetPushDevice()
+    if (!deviceId) return
+    try {
+      await replaceNotifications(auth, deviceId, [])
+    } catch {
+      // The previous server may already be gone. This phone stops using it either way.
+    }
+  }
+
+  async function syncBookings() {
+    const auth = pushAuth(settings.pushUrl, settings.pushToken)
+    if (!auth || !pushUrlIsReachable(auth.baseUrl, location.protocol)) {
+      setRemote(false)
+      return
+    }
     const sent = read(SENT_KEY, parseReminderLog)
-    const result = dueReminders(loadLog(), settings, sent, new Date(), (entry) =>
-      formatLogTime(entry.at, entry.timeZone || browserTimeZone()),
-    )
-    if (JSON.stringify(result.sent) !== JSON.stringify(sent)) write(SENT_KEY, result.sent)
-    if (!notificationsSupported() || Notification.permission !== 'granted') return
-    for (const reminder of result.reminders) void show(reminder).catch(() => {})
+    const links = {
+      url: new URL('./', document.baseURI).href,
+      icon: new URL('icons/icon-192.png', document.baseURI).href,
+    }
+    const wanted: BookedNotification[] = settings.notify
+      ? scheduledReminders(loadLog(), settings, sent, new Date(), describeEntry).map((item) => ({ ...item, ...links }))
+      : []
+    const plan = JSON.stringify(wanted)
+    if (plan === lastBooked) return
+    const deviceId = settings.notify ? await ensurePushDevice(auth) : storedPushDeviceId(auth)
+    if (!deviceId) {
+      if (!settings.notify) lastBooked = plan
+      return
+    }
+    await replaceNotifications(auth, deviceId, wanted)
+    lastBooked = plan
+    setRemote(settings.notify)
+  }
+
+  function check() {
+    booking = booking.then(() => syncBookings()).catch(markFailed)
   }
 
   expiryEnabled.addEventListener('change', () => save({ ...settings, expiryEnabled: expiryEnabled.checked }))
   expiryHours.addEventListener('change', () => save({ ...settings, expiryHours: Number(expiryHours.value) }))
   remindExpiry.addEventListener('change', () => save({ ...settings, remindOnExpiry: remindExpiry.checked }))
+
+  function saveServer() {
+    save({ ...settings, pushUrl: pushUrl.value, pushToken: pushToken.value })
+  }
+
+  pushUrl.addEventListener('change', saveServer)
+  pushToken.addEventListener('change', saveServer)
 
   notify.addEventListener('change', async () => {
     if (!notify.checked) {

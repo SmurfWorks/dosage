@@ -2058,6 +2058,32 @@ html.is-sliding .app-view.is-open { overflow-y: hidden; }
 .expiry-hours[hidden],
 .reminder-options[hidden] { display: none; }
 
+.reminder-server {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border: 1.5px solid var(--line);
+  border-radius: 16px;
+  background: var(--field-sunk);
+}
+
+.reminder-server label {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.reminder-server .field {
+  margin-top: 4px;
+  padding: 1px 12px;
+  background: var(--field);
+}
+
+.reminder-server input {
+  padding: 7px 0;
+  font-size: 0.95rem;
+}
+
 .expiry-hours {
   margin-top: 14px;
 }

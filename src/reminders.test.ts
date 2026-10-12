@@ -9,6 +9,7 @@ import {
   normaliseTimes,
   parseReminderLog,
   parseReminderSettings,
+  scheduledReminders,
   type ReminderLog,
   type ReminderSettings,
 } from './reminders'
@@ -150,6 +151,10 @@ describe('stored reminder settings', () => {
       parseReminderSettings({ expiryEnabled: true, expiryHours: 40, notify: 'yes', times: ['20:00', '7:5', '08:30', '20:00', 3] }),
     ).toEqual({ ...DEFAULT_REMINDER_SETTINGS, expiryEnabled: true, times: ['08:30', '20:00'] })
     expect(parseReminderSettings({ expiryHours: 3, remindOnExpiry: false }).expiryHours).toBe(3)
+    expect(parseReminderSettings({ pushUrl: ' https://push.example/ ', pushToken: ' secret ' })).toMatchObject({
+      pushUrl: 'https://push.example',
+      pushToken: 'secret',
+    })
     expect(parseReminderLog({ expiryEntryId: 5, expirySentAt: 10, timesHandled: ['x', 1] })).toEqual({
       expiryEntryId: null,
       expirySentAt: 10,
@@ -159,5 +164,78 @@ describe('stored reminder settings', () => {
 
   it('sorts times and removes repeats', () => {
     expect(normaliseTimes(['21:00', '06:30', '21:00', '25:00'])).toEqual(['06:30', '21:00'])
+  })
+})
+
+describe('reminders booked on the server', () => {
+  const entries = [entry('lunch', at(12))]
+
+  it('books the expiry at the moment the target expires, with the same words', () => {
+    expect(scheduledReminders(entries, on, EMPTY_REMINDER_LOG, at(13), describe12)).toEqual([
+      {
+        key: 'expiry',
+        deliverAt: at(16).toISOString(),
+        title: 'Your target has expired',
+        body: "It's been 4 hours since your 12:00 pm entry, so that bolus could be wearing off.",
+        tag: 'target-expiry',
+      },
+    ])
+  })
+
+  it('still books an expiry inside the 30 minute grace, and drops one that is later', () => {
+    expect(scheduledReminders(entries, on, EMPTY_REMINDER_LOG, at(16, 10), describe12)[0].deliverAt).toBe(
+      at(16).toISOString(),
+    )
+    expect(scheduledReminders(entries, on, EMPTY_REMINDER_LOG, at(16, 31), describe12)).toEqual([])
+  })
+
+  it('does not book an expiry that has already been dealt with', () => {
+    const sent = { ...EMPTY_REMINDER_LOG, expiryEntryId: 'lunch' }
+    expect(scheduledReminders(entries, on, sent, at(13), describe12)).toEqual([])
+  })
+
+  it('books each timed reminder for the next 7 days when no target is active', () => {
+    const settings = { ...on, remindOnExpiry: false, times: ['09:00'] }
+    const booked = scheduledReminders([], settings, EMPTY_REMINDER_LOG, at(8), () => '')
+    expect(booked.map((item) => item.deliverAt)).toEqual([
+      at(9, 0, 8).toISOString(),
+      at(9, 0, 9).toISOString(),
+      at(9, 0, 10).toISOString(),
+      at(9, 0, 11).toISOString(),
+      at(9, 0, 12).toISOString(),
+      at(9, 0, 13).toISOString(),
+      at(9, 0, 14).toISOString(),
+    ])
+    expect(booked[0]).toMatchObject({
+      key: 'time-2026-10-08-09:00',
+      title: 'No active target',
+      tag: 'reminder-09:00',
+    })
+  })
+
+  it('skips a time covered by an active target, and the hour after an expiry', () => {
+    const settings = { ...on, times: ['15:00', '16:30', '17:01'] }
+    const keys = scheduledReminders(entries, settings, EMPTY_REMINDER_LOG, at(13), describe12).map((item) => item.key)
+    expect(keys).toContain('expiry')
+    expect(keys).not.toContain('time-2026-10-08-15:00')
+    expect(keys).not.toContain('time-2026-10-08-16:30')
+    expect(keys).toContain('time-2026-10-08-17:01')
+    expect(keys).toContain('time-2026-10-09-15:00')
+    expect(keys).toContain('time-2026-10-09-16:30')
+  })
+
+  it('does not book a time already dealt with today', () => {
+    const settings = { ...on, remindOnExpiry: false, times: ['09:00'] }
+    const sent = { ...EMPTY_REMINDER_LOG, timesHandled: ['2026-10-08 09:00'] }
+    const keys = scheduledReminders([], settings, sent, at(9, 10), () => '').map((item) => item.key)
+    expect(keys).not.toContain('time-2026-10-08-09:00')
+    expect(keys).toContain('time-2026-10-09-09:00')
+  })
+
+  it('books nothing when reminders are off', () => {
+    expect(scheduledReminders(entries, { ...on, notify: false }, EMPTY_REMINDER_LOG, at(13), describe12)).toEqual([])
+    expect(scheduledReminders(entries, { ...on, expiryEnabled: false }, EMPTY_REMINDER_LOG, at(13), describe12)).toEqual(
+      [],
+    )
   })
 })

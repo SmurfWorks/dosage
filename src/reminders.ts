@@ -8,6 +8,8 @@ export const EXPIRY_HOURS_MAX = 12
 export const REMINDER_GRACE_MS = 30 * 60 * 1000
 /** Timed reminders stay quiet this long after an expiry reminder. */
 export const QUIET_AFTER_EXPIRY_MS = 60 * 60 * 1000
+/** Timed reminders booked this many days ahead, so they can arrive while the app is closed. */
+export const REMINDER_LOOKAHEAD_DAYS = 7
 
 export type ReminderSettings = {
   /** Let target glucose levels expire after `expiryHours`. */
@@ -19,6 +21,10 @@ export type ReminderSettings = {
   remindOnExpiry: boolean
   /** "HH:MM" times to remind at when there is no active target. */
   times: string[]
+  /** Address of the reminder server, without a trailing slash. */
+  pushUrl: string
+  /** Token for this app on that server. */
+  pushToken: string
 }
 
 /** What has already been sent, so nothing is sent twice. */
@@ -33,12 +39,23 @@ export type ReminderLog = {
 
 export type Reminder = { kind: 'expiry' | 'time'; title: string; body: string; tag: string }
 
+/** A reminder the server should deliver at a fixed time. */
+export type ScheduledReminder = {
+  key: string
+  deliverAt: string
+  title: string
+  body: string
+  tag: string
+}
+
 export const DEFAULT_REMINDER_SETTINGS: ReminderSettings = {
   expiryEnabled: false,
   expiryHours: DEFAULT_EXPIRY_HOURS,
   notify: false,
   remindOnExpiry: true,
   times: [],
+  pushUrl: '',
+  pushToken: '',
 }
 
 export const EMPTY_REMINDER_LOG: ReminderLog = { expiryEntryId: null, expirySentAt: null, timesHandled: [] }
@@ -90,6 +107,88 @@ function atLocalTime(day: Date, time: string): Date {
   return at
 }
 
+function expiryReminder(entry: LogEntry, hours: number, describeTime: (entry: LogEntry) => string): Reminder {
+  const hoursText = hours === 1 ? '1 hour' : `${hours} hours`
+  const since = `It's been ${hoursText} since your ${describeTime(entry)} entry`
+  return {
+    kind: 'expiry',
+    title: 'Your target has expired',
+    body: entry.insulinUnits > 0 ? `${since}, so that bolus could be wearing off.` : `${since}.`,
+    tag: 'target-expiry',
+  }
+}
+
+function timedReminder(hours: number, time: string): Reminder {
+  return {
+    kind: 'time',
+    title: 'No active target',
+    body:
+      "You haven't logged a target in the last " +
+      (hours === 1 ? 'hour' : `${hours} hours`) +
+      '. Open Dosage Helper to check in.',
+    tag: `reminder-${time}`,
+  }
+}
+
+function booked(key: string, atMs: number, reminder: Reminder): ScheduledReminder {
+  return {
+    key,
+    deliverAt: new Date(atMs).toISOString(),
+    title: reminder.title,
+    body: reminder.body,
+    tag: reminder.tag,
+  }
+}
+
+/** True when a timed reminder at `atMs` would fall in the hour after an expiry reminder sent at `sentAt`. */
+function withinQuiet(atMs: number, sentAt: number | null): boolean {
+  return sentAt !== null && atMs >= sentAt && atMs - sentAt < QUIET_AFTER_EXPIRY_MS
+}
+
+/**
+ * Reminders to book on the server from `now`. The same rules as {@link dueReminders}, applied to the
+ * upcoming times instead of only the minute the app happens to be open.
+ */
+export function scheduledReminders(
+  entries: LogEntry[],
+  settings: ReminderSettings,
+  sent: ReminderLog,
+  now: Date,
+  describeTime: (entry: LogEntry) => string,
+): ScheduledReminder[] {
+  if (!settings.expiryEnabled || !settings.notify) return []
+  const hours = settings.expiryHours
+  const hourMs = 60 * 60 * 1000
+  const nowMs = now.getTime()
+  const bookedReminders: ScheduledReminder[] = []
+  const latest = latestEntry(entries, now)
+  let upcomingExpiry: number | null = null
+
+  if (settings.remindOnExpiry && latest && latest.id !== sent.expiryEntryId) {
+    const expiresAt = Date.parse(latest.at) + hours * hourMs
+    if (nowMs - expiresAt <= REMINDER_GRACE_MS) {
+      upcomingExpiry = expiresAt
+      bookedReminders.push(booked('expiry', expiresAt, expiryReminder(latest, hours, describeTime)))
+    }
+  }
+
+  for (let offset = 0; offset < REMINDER_LOOKAHEAD_DAYS; offset += 1) {
+    const day = new Date(now)
+    day.setDate(now.getDate() + offset)
+    for (const time of normaliseTimes(settings.times)) {
+      const atMs = atLocalTime(day, time).getTime()
+      if (nowMs - atMs > REMINDER_GRACE_MS) continue
+      const handled = `${localDateKey(day)} ${time}`
+      if (sent.timesHandled.includes(handled)) continue
+      if (hasActiveTarget(entries, new Date(atMs), hours)) continue
+      if (withinQuiet(atMs, sent.expirySentAt) || withinQuiet(atMs, upcomingExpiry)) continue
+      bookedReminders.push(booked(`time-${localDateKey(day)}-${time}`, atMs, timedReminder(hours, time)))
+    }
+  }
+
+  return bookedReminders
+}
+
 /**
  * The reminders due at `now`, and the updated record of what has been dealt with. A reminder that is due but no
  * longer wanted, such as a timed one while a target is active, is marked as dealt with so it never arrives late.
@@ -114,14 +213,7 @@ export function dueReminders(
     if (nowMs >= expiresAt) {
       next.expiryEntryId = latest.id
       if (settings.remindOnExpiry && nowMs - expiresAt <= REMINDER_GRACE_MS) {
-        const hoursText = hours === 1 ? '1 hour' : `${hours} hours`
-        const since = `It's been ${hoursText} since your ${describeTime(latest)} entry`
-        reminders.push({
-          kind: 'expiry',
-          title: 'Your target has expired',
-          body: latest.insulinUnits > 0 ? `${since}, so that bolus could be wearing off.` : `${since}.`,
-          tag: 'target-expiry',
-        })
+        reminders.push(expiryReminder(latest, hours, describeTime))
         next.expirySentAt = nowMs
       }
     }
@@ -137,15 +229,8 @@ export function dueReminders(
     if (nowMs - at.getTime() > REMINDER_GRACE_MS) continue
     // Judged when the reminder would arrive, so an entry made since its time still counts.
     if (hasActiveTarget(entries, now, hours)) continue
-    if (next.expirySentAt !== null && nowMs - next.expirySentAt < QUIET_AFTER_EXPIRY_MS) continue
-    reminders.push({
-      kind: 'time',
-      title: 'No active target',
-      body: "You haven't logged a target in the last " +
-        (hours === 1 ? 'hour' : `${hours} hours`) +
-        '. Open Dosage Helper to check in.',
-      tag: `reminder-${time}`,
-    })
+    if (withinQuiet(nowMs, next.expirySentAt)) continue
+    reminders.push(timedReminder(hours, time))
   }
 
   // Only today's timed reminders matter; older keys are dropped so the record stays small.
@@ -164,6 +249,8 @@ export function parseReminderSettings(value: unknown): ReminderSettings {
     notify: stored.notify === true,
     remindOnExpiry: stored.remindOnExpiry !== false,
     times: Array.isArray(stored.times) ? normaliseTimes(stored.times.filter((t): t is string => typeof t === 'string')) : [],
+    pushUrl: typeof stored.pushUrl === 'string' ? stored.pushUrl.trim().replace(/\/+$/, '') : '',
+    pushToken: typeof stored.pushToken === 'string' ? stored.pushToken.trim() : '',
   }
 }
 
