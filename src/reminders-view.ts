@@ -4,8 +4,10 @@ import { checkPushConnection, ensurePushDevice, forgetPushDevice, pageOrigin, pu
 import {
   activeHours,
   DEFAULT_REMINDER_SETTINGS,
+  describeNextReminder,
   dueReminders,
   EMPTY_REMINDER_LOG,
+  nextReminder,
   normaliseTimes,
   parseReminderLog,
   parseReminderSettings,
@@ -99,6 +101,7 @@ export function createRemindersView(onHoursChange: () => void): RemindersView {
   const pushToken = element<HTMLInputElement>('#push-token')
   const timesList = element<HTMLUListElement>('#reminder-times')
   const addTime = element<HTMLButtonElement>('#reminder-add')
+  const nextText = element<HTMLElement>('#reminder-next')
 
   let settings = read(SETTINGS_KEY, parseReminderSettings)
   let timezone = readTimezone()
@@ -197,6 +200,7 @@ export function createRemindersView(onHoursChange: () => void): RemindersView {
     pushUrl.setAttribute('aria-invalid', error === '' ? 'false' : 'true')
     pushToken.setAttribute('aria-invalid', error === '' ? 'false' : 'true')
     rules.hidden = !notify.checked || !remoteReady
+    if (!rules.hidden) paintNext()
     pushOrigin.textContent = pageOrigin(location.href)
     if (timezoneSelect.options.length === 0) {
       for (const choice of timezoneChoices(supportedTimeZones(), new Date())) {
@@ -220,6 +224,16 @@ export function createRemindersView(onHoursChange: () => void): RemindersView {
 
   function describeEntry(entry: { at: string; timeZone: string }) {
     return formatLogTime(entry.at, entry.timeZone || browserTimeZone())
+  }
+
+  /** The same reminders that are booked on the server, so the message matches what will arrive. */
+  function upcomingReminders(now: Date) {
+    return scheduledReminders(loadLog(), settings, read(SENT_KEY, parseReminderLog), now, describeEntry)
+  }
+
+  function paintNext() {
+    const now = new Date()
+    nextText.textContent = describeNextReminder(nextReminder(upcomingReminders(now), now), now, browserTimeZone())
   }
 
   function showConnection(ready: boolean, error = '') {
@@ -277,12 +291,12 @@ export function createRemindersView(onHoursChange: () => void): RemindersView {
       return
     }
     showConnection(true)
-    const sent = read(SENT_KEY, parseReminderLog)
+    paintNext()
     const links = {
       url: new URL('./', document.baseURI).href,
       icon: new URL('icons/icon-192.png', document.baseURI).href,
     }
-    const wanted: BookedNotification[] = scheduledReminders(loadLog(), settings, sent, new Date(), describeEntry).map(
+    const wanted: BookedNotification[] = upcomingReminders(new Date()).map(
       (item) => ({ ...item, ...links }),
     )
     let deviceId: string | null

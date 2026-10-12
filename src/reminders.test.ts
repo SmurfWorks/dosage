@@ -3,9 +3,11 @@ import type { LogEntry } from './log'
 import {
   activeHours,
   DEFAULT_REMINDER_SETTINGS,
+  describeNextReminder,
   dueReminders,
   EMPTY_REMINDER_LOG,
   hasActiveTarget,
+  nextReminder,
   normaliseTimes,
   parseReminderLog,
   parseReminderSettings,
@@ -249,5 +251,37 @@ describe('reminders booked on the server', () => {
     expect(scheduledReminders(entries, { ...on, expiryEnabled: false }, EMPTY_REMINDER_LOG, at(13), describe12)).toEqual(
       [],
     )
+  })
+})
+
+describe('next reminder message', () => {
+  const zone = Intl.DateTimeFormat().resolvedOptions().timeZone
+  const booked = (key: string, when: Date) => ({ key, deliverAt: when.toISOString(), title: '', body: '', tag: '' })
+  const time = (when: Date) => new Intl.DateTimeFormat(undefined, { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: zone }).format(when)
+
+  it('picks the earliest reminder still to come', () => {
+    const items = [booked('time-2026-10-09-09:00', at(9, 0, 9)), booked('expiry', at(16)), booked('time-2026-10-08-09:00', at(9))]
+    expect(nextReminder(items, at(13))?.key).toBe('expiry')
+  })
+
+  it('names a target expiry today', () => {
+    expect(describeNextReminder(booked('expiry', at(16)), at(13), zone)).toBe(
+      `Next reminder: today at ${time(at(16))}, when your target expires.`,
+    )
+  })
+
+  it('says tomorrow, then the weekday, for timed reminders', () => {
+    expect(describeNextReminder(booked('time-2026-10-09-09:00', at(9, 0, 9)), at(13), zone)).toBe(
+      `Next reminder: tomorrow at ${time(at(9, 0, 9))}.`,
+    )
+    const weekday = new Intl.DateTimeFormat(undefined, { weekday: 'long', timeZone: zone }).format(at(9, 0, 11))
+    expect(describeNextReminder(booked('time-2026-10-11-09:00', at(9, 0, 11)), at(13), zone)).toBe(
+      `Next reminder: ${weekday} at ${time(at(9, 0, 11))}.`,
+    )
+  })
+
+  it('says when nothing is booked', () => {
+    expect(nextReminder([], at(13))).toBeNull()
+    expect(describeNextReminder(null, at(13), zone)).toBe('No reminders are due in the next 7 days.')
   })
 })

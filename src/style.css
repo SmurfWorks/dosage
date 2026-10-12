@@ -2128,6 +2128,15 @@ html.is-sliding .app-view.is-open { overflow-y: hidden; }
   margin: 6px 0 0;
 }
 
+.reminder-rules .reminder-next {
+  margin: 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--teal-soft);
+  color: var(--teal);
+  font-weight: 650;
+}
+
 .reminder-times {
   display: grid;
   gap: 8px;

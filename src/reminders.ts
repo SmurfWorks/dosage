@@ -1,4 +1,4 @@
-import type { LogEntry } from './log'
+import { formatLogTime, logDateKey, shiftDateKey, type LogEntry } from './log'
 
 /** Bolus insulin is typically active for up to 4 hours. */
 export const DEFAULT_EXPIRY_HOURS = 4
@@ -239,6 +239,40 @@ export function dueReminders(
   // Only today's timed reminders matter; older keys are dropped so the record stays small.
   next.timesHandled = next.timesHandled.filter((key) => key.startsWith(today))
   return { reminders, sent: next }
+}
+
+/** The earliest booked reminder still to come at `now`, or null when none is booked. */
+export function nextReminder(booked: ScheduledReminder[], now: Date): ScheduledReminder | null {
+  let next: ScheduledReminder | null = null
+  for (const item of booked) {
+    const at = Date.parse(item.deliverAt)
+    if (!Number.isFinite(at) || at < now.getTime()) continue
+    if (!next || at < Date.parse(next.deliverAt)) next = item
+  }
+  return next
+}
+
+/** "Next reminder: today at 4:00 pm, when your target expires." or "Next reminder: Wednesday at 9:00 am." */
+export function describeNextReminder(next: ScheduledReminder | null, now: Date, timeZone: string): string {
+  if (!next) return `No reminders are due in the next ${REMINDER_LOOKAHEAD_DAYS} days.`
+  const today = logDateKey(now.toISOString(), timeZone)
+  const day = logDateKey(next.deliverAt, timeZone)
+  let dayText: string
+  if (day === today) dayText = 'today'
+  else if (day === shiftDateKey(today, 1)) dayText = 'tomorrow'
+  else dayText = weekdayName(next.deliverAt, timeZone)
+  const when = `${dayText} at ${formatLogTime(next.deliverAt, timeZone)}`
+  return next.key === 'expiry'
+    ? `Next reminder: ${when}, when your target expires.`
+    : `Next reminder: ${when}.`
+}
+
+function weekdayName(at: string, timeZone: string): string {
+  try {
+    return new Intl.DateTimeFormat(undefined, { weekday: 'long', timeZone }).format(new Date(at))
+  } catch {
+    return new Intl.DateTimeFormat(undefined, { weekday: 'long' }).format(new Date(at))
+  }
 }
 
 export function parseReminderSettings(value: unknown): ReminderSettings {
