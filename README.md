@@ -43,7 +43,8 @@ The settings button opens **Set your routine**:
 - Whether to subtract fibre.
 - Daily Basal Dosages for morning (4am–10am), lunch (10am–4pm), dinner (4pm–10pm) and overnight (10pm–4am). Changing an amount keeps the earlier amounts for past days.
 - **Let target glucose levels expire**, after 1 to 12 hours (4 by default, as bolus insulin is typically active for up to 4 hours). A log entry keeps your target active for that long, and the recent bolus warning looks back the same distance.
-- **Send reminders**, once targets expire. Ticking it shows this app's origin, then **Reminder server address** and **Reminder server token**. Register that origin on your PWA Push app. Dosage Helper checks the address and token, and shows a message when the server does not accept them. Once it connects, **Remind me when my target expires** books one notification for when your latest log entry reaches that age, saying the bolus could be wearing off. **Remind me at the following times if I don't have an active target** takes any number of times; each is booked only when you have no log entry within the expiry time, and waits if a target expiry reminder goes out in the hour before it. Reminders are sent from that server, including while Dosage Helper is closed. The server is told the words and the time, not your glucose, carbs or dose. One missed by more than 30 minutes is skipped. On iPhone and iPad they need the app added to the Home Screen. The address, the token and these settings belong to the device, so they are not in backups.
+- **Timezone**, on its own, before **Send reminders**. The names are listed from New Zealand, then onward by their offset from GMT, and each name shows that offset. It starts as the timezone on this device. Dosage Helper sends it when this phone is registered with your reminder server, and updates the phone there when you change it.
+- **Send reminders**, once targets expire. Ticking it shows this app's origin, then **Reminder server address** and **Reminder server token**. Register that origin on your PWA Push app. Dosage Helper checks the address and token, and shows a message when the server does not accept them. Once it connects, **Remind me when my target expires** books one notification for when your latest log entry reaches that age, saying the bolus could be wearing off. **Remind me at the following times if I don't have an active target** takes any number of times; each is booked only when you have no log entry within the expiry time, and waits if a target expiry reminder goes out in the hour before it. Reminders are sent from that server, including while Dosage Helper is closed. The server is told the words and the time, not your glucose, carbs or dose. One missed by more than 30 minutes is skipped. On iPhone and iPad they need the app added to the Home Screen. The timezone, the address, the token and these settings belong to the device, so they are not in backups.
 - **Reset Routine** puts the defaults back.
 
 The defaults are a 4–8 mmol/L range, a 6 mmol/L target, 10 g of carbs raising glucose by 3 mmol/L, and 1 unit lowering it by 3 mmol/L, so 10 g is balanced by 1 unit.
@@ -52,7 +53,7 @@ The defaults are a 4–8 mmol/L range, a 6 mmol/L target, 10 g of carbs raising 
 
 The routine, the log, and your dishes, with how often you pick each, are stored in this browser on this device only.
 
-**Backup to file** saves all of it to a JSON file, and **Restore from file** replaces what is on the device with a backup, after saying what it holds. Current Glucose Reading then follows the restored log. Backups made before dishes existed restore with no dishes. **Delete all data** clears the log and dishes and resets the routine and reminder settings.
+**Backup to file** saves all of it to a JSON file, and **Restore from file** replaces what is on the device with a backup, after saying what it holds. Current Glucose Reading then follows the restored log. Backups made before dishes existed restore with no dishes. **Delete all data** clears the log and dishes and resets the routine, the timezone and the reminder settings.
 
 ## Install
 
@@ -77,8 +78,9 @@ The app is TypeScript with Vite and no framework. In `src`:
 | `calculator.ts` | The dose and target maths |
 | `format.ts`, `units.ts` | Wording for a dose and the glucose units |
 | `log.ts` | Log entries, their storage and the recent bolus check |
-| `reminders.ts`, `reminders-view.ts` | Target expiry and reminder rules, the reminder server address and token, and their settings |
-| `push.ts` | Registering this phone with the reminder server and booking notifications there |
+| `reminders.ts`, `reminders-view.ts` | Target expiry and reminder rules, the timezone, the reminder server address and token, and their settings |
+| `timezone.ts` | Timezone names, starting with New Zealand and ordered by their offset from GMT |
+| `push.ts` | Registering this phone and its timezone with the reminder server, and booking notifications there |
 | `basal.ts` | The basal schedule and its history |
 | `dishes.ts` | Dishes, their storage, search and pick counts |
 | `backup.ts` | Making and reading backup files |

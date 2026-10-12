@@ -57,7 +57,7 @@ function storage(): Storage | null {
   }
 }
 
-type StoredDevice = { id: string; baseUrl: string; token: string }
+type StoredDevice = { id: string; baseUrl: string; token: string; timezone: string }
 
 function readDevice(): StoredDevice | null {
   const raw = storage()?.getItem(DEVICE_KEY)
@@ -65,7 +65,12 @@ function readDevice(): StoredDevice | null {
   try {
     const parsed = JSON.parse(raw) as Partial<StoredDevice>
     if (typeof parsed.id === 'string' && typeof parsed.baseUrl === 'string' && typeof parsed.token === 'string') {
-      return { id: parsed.id, baseUrl: parsed.baseUrl, token: parsed.token }
+      return {
+        id: parsed.id,
+        baseUrl: parsed.baseUrl,
+        token: parsed.token,
+        timezone: typeof parsed.timezone === 'string' ? parsed.timezone : '',
+      }
     }
   } catch {
     // An older install stored only the id, which belonged to a server chosen in code.
@@ -79,8 +84,8 @@ export function storedPushDeviceId(auth: PushAuth): string | null {
   return stored.id
 }
 
-function rememberDevice(auth: PushAuth, id: string) {
-  storage()?.setItem(DEVICE_KEY, JSON.stringify({ id, baseUrl: auth.baseUrl, token: auth.token }))
+function rememberDevice(auth: PushAuth, id: string, timezone: string) {
+  storage()?.setItem(DEVICE_KEY, JSON.stringify({ id, baseUrl: auth.baseUrl, token: auth.token, timezone }))
 }
 
 export function forgetPushDevice() {
@@ -109,29 +114,74 @@ function authHeaders(auth: PushAuth, json = false): HeadersInit {
   }
 }
 
+function validationError(message: string): string {
+  if (/timezone/i.test(message)) return 'Choose a timezone the reminder server knows.'
+  if (/does not exist/i.test(message)) return "That reminder time does not exist in your timezone."
+  if (/register a timezone/i.test(message)) return 'Choose your timezone before reminders can be booked.'
+  return "Register this app's origin on the reminder server."
+}
+
 async function asJson(response: Response, forgetOnMissing = false): Promise<unknown> {
   if (response.status === 404 && forgetOnMissing) {
     forgetPushDevice()
     throw new Error('This phone is no longer registered for reminders.')
   }
-  if (response.status === 422) throw new Error("Register this app's origin on the reminder server.")
+  if (response.status === 422) {
+    let message = ''
+    try {
+      const body = (await response.json()) as { message?: unknown }
+      if (typeof body.message === 'string') message = body.message
+    } catch {
+      // The status is enough when the server sends no details.
+    }
+    throw new Error(validationError(message))
+  }
   if (!response.ok) throw new Error(`The reminder server responded ${response.status}.`)
   if (response.status === 204) return null
   const text = await response.text()
   return text ? JSON.parse(text) : null
 }
 
-export async function ensurePushDevice(auth: PushAuth, fetchImpl: typeof fetch = fetch): Promise<string | null> {
-  const existing = storedPushDeviceId(auth)
-  if (existing) return existing
-  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return null
-  if (!('serviceWorker' in navigator) || !('PushManager' in window)) return null
+async function postDevice(
+  auth: PushAuth,
+  timezone: string,
+  subscription: PushSubscription,
+  fetchImpl: typeof fetch,
+): Promise<string> {
+  const response = await fetchImpl(`${auth.baseUrl}/api/devices`, {
+    method: 'POST',
+    headers: authHeaders(auth, true),
+    body: JSON.stringify({ timezone, subscription: subscription.toJSON() }),
+  })
+  const body = (await asJson(response)) as { id?: string }
+  if (!body.id) throw new Error('The reminder server did not register this phone.')
+  rememberDevice(auth, body.id, timezone)
+  return body.id
+}
+
+/**
+ * Registers this phone, or updates its timezone when that has changed.
+ * A phone already registered for this server keeps its subscription.
+ */
+export async function ensurePushDevice(
+  auth: PushAuth,
+  timezone: string,
+  fetchImpl: typeof fetch = fetch,
+): Promise<string | null> {
+  const stored = readDevice()
+  const sameServer = stored !== null && stored.baseUrl === auth.baseUrl && stored.token === auth.token
+  if (sameServer && stored.timezone === timezone) return stored.id
+  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') return sameServer ? stored.id : null
+  if (typeof navigator === 'undefined' || !('serviceWorker' in navigator)) return sameServer ? stored.id : null
+  if (typeof window === 'undefined' || !('PushManager' in window)) return sameServer ? stored.id : null
   const registration = await navigator.serviceWorker.getRegistration()
-  if (!registration?.pushManager) return null
+  if (!registration?.pushManager) return sameServer ? stored.id : null
 
-  const previous = await registration.pushManager.getSubscription()
-  if (previous) await previous.unsubscribe()
+  const current = await registration.pushManager.getSubscription()
+  if (sameServer && stored && current) return postDevice(auth, timezone, current, fetchImpl)
+  if (sameServer && stored) return stored.id
 
+  if (current) await current.unsubscribe()
   const keyResponse = await fetchImpl(`${auth.baseUrl}/api/vapid-public-key`, { headers: { Accept: 'application/json' } })
   const keyBody = (await asJson(keyResponse)) as { publicKey?: string }
   if (!keyBody.publicKey) throw new Error('The reminder server has no public key.')
@@ -139,16 +189,7 @@ export async function ensurePushDevice(auth: PushAuth, fetchImpl: typeof fetch =
     userVisibleOnly: true,
     applicationServerKey: applicationServerKey(keyBody.publicKey) as BufferSource,
   })
-
-  const response = await fetchImpl(`${auth.baseUrl}/api/devices`, {
-    method: 'POST',
-    headers: authHeaders(auth, true),
-    body: JSON.stringify({ subscription: subscription.toJSON() }),
-  })
-  const body = (await asJson(response)) as { id?: string }
-  if (!body.id) throw new Error('The reminder server did not register this phone.')
-  rememberDevice(auth, body.id)
-  return body.id
+  return postDevice(auth, timezone, subscription, fetchImpl)
 }
 
 export async function replaceNotifications(

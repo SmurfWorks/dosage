@@ -13,9 +13,11 @@ import {
   type ReminderSettings,
 } from './reminders'
 import { escapeHtml } from './text'
+import { chosenTimezone, supportedTimeZones, timezoneChoices } from './timezone'
 
 const SETTINGS_KEY = 'insulin-calculator.reminders.v1'
 const SENT_KEY = 'insulin-calculator.reminders-sent.v1'
+const TIMEZONE_KEY = 'insulin-calculator.timezone.v1'
 /** How often the booked reminders are brought in line with the clock and the log. */
 const CHECK_MS = 30_000
 
@@ -67,11 +69,24 @@ function cleanPushUrl(url: string): string {
   return url.trim().replace(/\/+$/, '')
 }
 
+function readTimezone(): string {
+  let stored: string | null = null
+  try {
+    const raw = localStorage.getItem(TIMEZONE_KEY)
+    const parsed: unknown = raw ? JSON.parse(raw) : null
+    stored = typeof parsed === 'string' ? parsed : null
+  } catch {
+    stored = null
+  }
+  return chosenTimezone(stored, browserTimeZone(), supportedTimeZones())
+}
+
 export function createRemindersView(onHoursChange: () => void): RemindersView {
   const expiryEnabled = element<HTMLInputElement>('#expiry-enabled')
   const expiryHoursWrap = element<HTMLElement>('#expiry-hours-wrap')
   const expiryHours = element<HTMLSelectElement>('#expiry-hours')
   const group = element<HTMLElement>('#reminders-group')
+  const timezoneSelect = element<HTMLSelectElement>('#timezone')
   const notify = element<HTMLInputElement>('#notify-enabled')
   const status = element<HTMLElement>('#notify-status')
   const options = element<HTMLElement>('#reminder-options')
@@ -86,6 +101,7 @@ export function createRemindersView(onHoursChange: () => void): RemindersView {
   const addTime = element<HTMLButtonElement>('#reminder-add')
 
   let settings = read(SETTINGS_KEY, parseReminderSettings)
+  let timezone = readTimezone()
   const openedAuth = pushAuth(settings.pushUrl, settings.pushToken)
   let remoteReady = openedAuth !== null && storedPushDeviceId(openedAuth) !== null
   let remoteFailed = false
@@ -182,6 +198,15 @@ export function createRemindersView(onHoursChange: () => void): RemindersView {
     pushToken.setAttribute('aria-invalid', error === '' ? 'false' : 'true')
     rules.hidden = !notify.checked || !remoteReady
     pushOrigin.textContent = pageOrigin(location.href)
+    if (timezoneSelect.options.length === 0) {
+      for (const choice of timezoneChoices(supportedTimeZones(), new Date())) {
+        const option = document.createElement('option')
+        option.value = choice.id
+        option.textContent = choice.label
+        timezoneSelect.append(option)
+      }
+    }
+    if (document.activeElement !== timezoneSelect) timezoneSelect.value = timezone
     remindExpiry.checked = settings.remindOnExpiry
     if (document.activeElement !== pushUrl) pushUrl.value = settings.pushUrl
     if (document.activeElement !== pushToken) pushToken.value = settings.pushToken
@@ -228,7 +253,10 @@ export function createRemindersView(onHoursChange: () => void): RemindersView {
     if (!settings.notify) {
       if (auth && pushUrlIsReachable(auth.baseUrl, location.protocol)) {
         const deviceId = storedPushDeviceId(auth)
-        if (deviceId) await replaceNotifications(auth, deviceId, [])
+        if (deviceId) {
+          await ensurePushDevice(auth, timezone)
+          await replaceNotifications(auth, deviceId, [])
+        }
       }
       lastBooked = ''
       showConnection(false)
@@ -257,10 +285,17 @@ export function createRemindersView(onHoursChange: () => void): RemindersView {
     const wanted: BookedNotification[] = scheduledReminders(loadLog(), settings, sent, new Date(), describeEntry).map(
       (item) => ({ ...item, ...links }),
     )
+    let deviceId: string | null
+    try {
+      deviceId = await ensurePushDevice(auth, timezone)
+    } catch (error) {
+      lastBooked = ''
+      showConnection(true, error instanceof Error ? error.message : 'Dosage Helper could not book reminders with that server.')
+      return
+    }
+    if (!deviceId) return
     const plan = JSON.stringify(wanted)
     if (plan === lastBooked) return
-    const deviceId = await ensurePushDevice(auth)
-    if (!deviceId) return
     try {
       await replaceNotifications(auth, deviceId, wanted)
     } catch (error) {
@@ -286,6 +321,11 @@ export function createRemindersView(onHoursChange: () => void): RemindersView {
 
   pushUrl.addEventListener('change', saveServer)
   pushToken.addEventListener('change', saveServer)
+  timezoneSelect.addEventListener('change', () => {
+    timezone = timezoneSelect.value
+    write(TIMEZONE_KEY, timezone)
+    check()
+  })
 
   notify.addEventListener('change', async () => {
     if (!notify.checked) {
@@ -340,6 +380,12 @@ export function createRemindersView(onHoursChange: () => void): RemindersView {
     activeHours: () => activeHours(settings),
     check,
     reset() {
+      try {
+        localStorage.removeItem(TIMEZONE_KEY)
+      } catch {
+        // The select still returns to the timezone on this device until the page closes.
+      }
+      timezone = readTimezone()
       write(SENT_KEY, EMPTY_REMINDER_LOG)
       save({ ...DEFAULT_REMINDER_SETTINGS })
     },

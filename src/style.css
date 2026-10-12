@@ -2055,6 +2055,11 @@ html.is-sliding .app-view.is-open { overflow-y: hidden; }
   font-size: 1rem;
 }
 
+.timezone-field select {
+  font-size: 1rem;
+  font-variant-numeric: normal;
+}
+
 .expiry-hours[hidden],
 .reminder-options[hidden],
 .reminder-rules[hidden] { display: none; }

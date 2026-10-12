@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { applicationServerKey, checkPushConnection, pageOrigin, pushAuth, pushUrlIsReachable, replaceNotifications, type BookedNotification } from './push'
+import { afterEach, describe, expect, it, vi } from 'vitest'
+import { applicationServerKey, checkPushConnection, ensurePushDevice, pageOrigin, pushAuth, pushUrlIsReachable, replaceNotifications, type BookedNotification } from './push'
 
 const auth = { baseUrl: 'http://push.example', token: 'app-token' }
 
@@ -105,4 +105,102 @@ describe('push server', () => {
 
     expect(methods).toEqual(['DELETE'])
   })
+
+  it('registers this phone with its timezone, and updates that timezone without a new subscription', async () => {
+    const items = new Map<string, string>()
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => items.get(key) ?? null,
+      setItem: (key: string, value: string) => items.set(key, value),
+      removeItem: (key: string) => items.delete(key),
+    })
+    vi.stubGlobal('Notification', { permission: 'granted' })
+    vi.stubGlobal('PushManager', class PushManager {})
+    const subscription = {
+      endpoint: 'https://push.example/device',
+      keys: { p256dh: 'p256', auth: 'auth' },
+      toJSON() {
+        return { endpoint: this.endpoint, keys: this.keys }
+      },
+      unsubscribe: vi.fn(async () => true),
+    }
+    let current: typeof subscription | null = null
+    vi.stubGlobal('navigator', {
+      serviceWorker: {
+        getRegistration: async () => ({
+          pushManager: {
+            getSubscription: async () => current,
+            subscribe: async () => {
+              current = subscription
+              return subscription
+            },
+          },
+        }),
+      },
+    })
+    vi.stubGlobal('window', { PushManager: class PushManager {} })
+
+    const calls: { method: string; url: string; body?: unknown }[] = []
+    const fetchImpl = (async (url: RequestInfo | URL, init?: RequestInit) => {
+      const method = init?.method ?? 'GET'
+      calls.push({ method, url: String(url), body: init?.body ? JSON.parse(String(init.body)) : undefined })
+      if (String(url).endsWith('/api/vapid-public-key')) return response(200, { publicKey: 'aGVsbG8' })
+      if (method === 'POST') return response(201, { id: 'device-1' })
+      return response(500)
+    }) as typeof fetch
+
+    await expect(ensurePushDevice(auth, 'Pacific/Auckland', fetchImpl)).resolves.toBe('device-1')
+    expect(calls.map((call) => call.method)).toEqual(['GET', 'POST'])
+    expect(calls[1].body).toEqual({
+      timezone: 'Pacific/Auckland',
+      subscription: { endpoint: 'https://push.example/device', keys: { p256dh: 'p256', auth: 'auth' } },
+    })
+    expect(subscription.unsubscribe).not.toHaveBeenCalled()
+
+    calls.length = 0
+    await expect(ensurePushDevice(auth, 'America/Los_Angeles', fetchImpl)).resolves.toBe('device-1')
+    expect(calls).toEqual([
+      {
+        method: 'POST',
+        url: 'http://push.example/api/devices',
+        body: {
+          timezone: 'America/Los_Angeles',
+          subscription: { endpoint: 'https://push.example/device', keys: { p256dh: 'p256', auth: 'auth' } },
+        },
+      },
+    ])
+    expect(subscription.unsubscribe).not.toHaveBeenCalled()
+
+    calls.length = 0
+    await expect(ensurePushDevice(auth, 'America/Los_Angeles', fetchImpl)).resolves.toBe('device-1')
+    expect(calls).toEqual([])
+  })
+
+  it('says when the reminder server does not know the timezone', async () => {
+    vi.stubGlobal('localStorage', { getItem: () => null, setItem: () => {}, removeItem: () => {} })
+    vi.stubGlobal('Notification', { permission: 'granted' })
+    vi.stubGlobal('PushManager', class PushManager {})
+    vi.stubGlobal('window', { PushManager: class PushManager {} })
+    vi.stubGlobal('navigator', {
+      serviceWorker: {
+        getRegistration: async () => ({
+          pushManager: {
+            getSubscription: async () => null,
+            subscribe: async () => ({ toJSON: () => ({ endpoint: 'https://push.example/device' }) }),
+          },
+        }),
+      },
+    })
+    const fetchImpl = (async (url: RequestInfo | URL) => {
+      if (String(url).endsWith('/api/vapid-public-key')) return response(200, { publicKey: 'aGVsbG8' })
+      return response(422, { message: 'Use a timezone name such as America/Los_Angeles.' })
+    }) as typeof fetch
+
+    await expect(ensurePushDevice(auth, 'Not/Azone', fetchImpl)).rejects.toThrow(
+      'Choose a timezone the reminder server knows.',
+    )
+  })
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
 })
